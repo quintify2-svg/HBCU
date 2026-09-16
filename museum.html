@@ -1,0 +1,4198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Museum Hallway</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    #intro {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(1.5rem, 4vw, 3rem);
+      background:
+        radial-gradient(ellipse 90% 70% at 50% 35%, rgba(70, 52, 34, 0.45), transparent 60%),
+        linear-gradient(165deg, #1a1410 0%, #0c0a08 55%, #120e0a 100%);
+      color: #f2e8d5;
+      font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+      overflow: hidden;
+    }
+    #intro::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          -12deg,
+          transparent,
+          transparent 48px,
+          rgba(242, 232, 213, 0.015) 48px,
+          rgba(242, 232, 213, 0.015) 49px
+        );
+      pointer-events: none;
+    }
+    #intro.hidden { display: none; }
+
+    #introBrand {
+      position: absolute;
+      top: clamp(1.2rem, 3vw, 2rem);
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.78rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      opacity: 0.55;
+      white-space: nowrap;
+    }
+
+    #slideStage {
+      position: relative;
+      width: min(42rem, 92vw);
+      min-height: min(52vh, 28rem);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.1rem;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .slide.active .slideKicker {
+      animation: slideUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+    }
+    .slide.active .slideTitle {
+      animation: slideUp 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+    }
+    .slide.active .slideBody {
+      animation: slideUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both;
+    }
+    .slide.leaving {
+      visibility: visible;
+      animation: fadeOut 0.4s ease forwards;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(28px); filter: blur(4px); }
+      to { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+    @keyframes fadeOut {
+      to { opacity: 0; transform: translateY(-12px); }
+    }
+
+    .slideKicker {
+      font-size: 0.72rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #c4a574;
+      opacity: 0;
+    }
+    .slideTitle {
+      font-size: clamp(2rem, 5.5vw, 3.4rem);
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      line-height: 1.15;
+      max-width: 18ch;
+      opacity: 0;
+    }
+    .slideBody {
+      font-size: clamp(1rem, 2.2vw, 1.2rem);
+      line-height: 1.65;
+      letter-spacing: 0.02em;
+      opacity: 0;
+      max-width: 34rem;
+      color: rgba(242, 232, 213, 0.88);
+    }
+
+    #introDots {
+      display: flex;
+      gap: 0.55rem;
+      margin-top: 2.2rem;
+      z-index: 1;
+    }
+    #introDots span {
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 50%;
+      background: rgba(242, 232, 213, 0.25);
+      transition: background 0.35s, transform 0.35s;
+    }
+    #introDots span.on {
+      background: #c4a574;
+      transform: scale(1.25);
+    }
+
+    #introNext {
+      margin-top: 1.75rem;
+      z-index: 1;
+      appearance: none;
+      border: 1px solid rgba(242, 232, 213, 0.4);
+      background: rgba(242, 232, 213, 0.08);
+      color: #f2e8d5;
+      font-family: inherit;
+      font-size: 0.95rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 0.85rem 1.8rem;
+      cursor: pointer;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(10px);
+      transition: opacity 0.45s ease, transform 0.45s ease, background 0.2s, border-color 0.2s;
+    }
+    #introNext.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    #introNext:hover {
+      background: rgba(242, 232, 213, 0.16);
+      border-color: rgba(242, 232, 213, 0.7);
+    }
+
+    #hint {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(8, 6, 4, 0.55);
+      color: #f2e8d5;
+      font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+      z-index: 10;
+      cursor: pointer;
+      text-align: center;
+      padding: 2rem;
+    }
+    #hint.visible { display: flex; }
+    #hint h1 {
+      font-size: clamp(1.5rem, 3.5vw, 2.2rem);
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.75rem;
+    }
+    #hint p {
+      font-size: 1rem;
+      opacity: 0.85;
+      letter-spacing: 0.04em;
+    }
+
+    #hud {
+      position: fixed;
+      right: 1.1rem;
+      bottom: 1.1rem;
+      z-index: 8;
+      color: #f2e8d5;
+      font-family: Georgia, "Palatino Linotype", serif;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      letter-spacing: 0.03em;
+      background: rgba(12, 10, 8, 0.62);
+      border: 1px solid rgba(242, 232, 213, 0.18);
+      padding: 0.7rem 0.9rem;
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    #hud kbd {
+      display: inline-block;
+      min-width: 1.15em;
+      padding: 0.05em 0.35em;
+      margin: 0 0.1em;
+      border: 1px solid rgba(242, 232, 213, 0.35);
+      border-radius: 3px;
+      font-family: Georgia, serif;
+      font-size: 0.78rem;
+      background: rgba(255,255,255,0.06);
+      text-align: center;
+    }
+    #hud.show { opacity: 1; }
+
+    #mapOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(ellipse at center, rgba(40, 32, 24, 0.55), rgba(8, 6, 4, 0.88));
+      backdrop-filter: blur(3px);
+    }
+    #mapOverlay.open { display: flex; }
+    #mapPanel {
+      position: relative;
+      background: linear-gradient(160deg, #2a231c 0%, #1c1713 100%);
+      border: 1px solid rgba(242, 232, 213, 0.28);
+      padding: 1rem 1rem 0.75rem;
+      box-shadow: 0 22px 60px rgba(0,0,0,0.5);
+      max-width: min(94vw, 780px);
+      max-height: 94vh;
+    }
+    #mapPanel h2 {
+      color: #f2e8d5;
+      font-family: Georgia, "Palatino Linotype", serif;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      font-size: 1.15rem;
+      text-align: center;
+      margin-bottom: 0.65rem;
+    }
+    #mapCanvas {
+      display: block;
+      width: min(86vw, 700px);
+      height: min(86vw, 700px);
+      background: #c4b49a;
+      cursor: grab;
+      border: 1px solid rgba(90, 70, 50, 0.35);
+      border-radius: 4px;
+    }
+    #mapCanvas.dragging { cursor: grabbing; }
+    #mapHint {
+      color: rgba(242, 232, 213, 0.75);
+      font-family: Georgia, serif;
+      font-size: 0.78rem;
+      text-align: center;
+      margin-top: 0.55rem;
+      letter-spacing: 0.04em;
+      line-height: 1.4;
+    }
+
+    #crosshair {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: 6px;
+      height: 6px;
+      margin: -3px 0 0 -3px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.35);
+      z-index: 15;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.15s, background 0.15s;
+    }
+    #crosshair.show { opacity: 1; }
+    #crosshair.hot {
+      background: #fff;
+      transform: scale(1.35);
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 0 10px rgba(255,255,255,0.55);
+    }
+    #lookPrompt {
+      position: fixed;
+      left: 50%;
+      top: calc(50% + 18px);
+      transform: translateX(-50%);
+      z-index: 15;
+      pointer-events: none;
+      color: #fff;
+      font-family: Georgia, "Palatino Linotype", serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+      opacity: 0;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    #lookPrompt.show { opacity: 0.95; }
+
+    #collegeOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(1rem, 3vw, 2.5rem);
+      background: rgba(8, 6, 4, 0.72);
+      backdrop-filter: blur(8px);
+      color: #f2e8d5;
+      font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    }
+    #collegeOverlay.open { display: flex; }
+
+    #collegeBack {
+      position: absolute;
+      top: 1.1rem;
+      left: 1.1rem;
+      appearance: none;
+      border: 1px solid rgba(242, 232, 213, 0.4);
+      background: rgba(20, 16, 12, 0.55);
+      color: #f2e8d5;
+      font-family: inherit;
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.65rem 1.1rem;
+      cursor: pointer;
+      z-index: 2;
+    }
+    #collegeBack:hover {
+      background: rgba(242, 232, 213, 0.12);
+      border-color: rgba(242, 232, 213, 0.7);
+    }
+
+    #collegeStage {
+      position: relative;
+      width: min(52rem, 94vw);
+      min-height: min(62vh, 34rem);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .cSlide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.9rem;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      padding: 0.5rem;
+    }
+    .cSlide.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .cSlide.active .cKicker,
+    .cSlide.active .cTitle,
+    .cSlide.active .cBody,
+    .cSlide.active .cImg,
+    .cSlide.active .cLink {
+      animation: slideUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .cSlide.active .cKicker { animation-delay: 0.05s; }
+    .cSlide.active .cTitle { animation-delay: 0.18s; }
+    .cSlide.active .cImg { animation-delay: 0.28s; }
+    .cSlide.active .cBody { animation-delay: 0.4s; }
+    .cSlide.active .cLink { animation-delay: 0.5s; }
+    .cSlide.leaving {
+      visibility: visible;
+      animation: fadeOut 0.35s ease forwards;
+    }
+    .cKicker {
+      font-size: 0.72rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #c4a574;
+      opacity: 0;
+    }
+    .cTitle {
+      font-size: clamp(1.7rem, 4.5vw, 2.8rem);
+      font-weight: 400;
+      letter-spacing: 0.03em;
+      line-height: 1.15;
+      max-width: 20ch;
+      opacity: 0;
+    }
+    .cBody {
+      font-size: clamp(0.95rem, 2vw, 1.15rem);
+      line-height: 1.65;
+      max-width: 38rem;
+      color: rgba(242, 232, 213, 0.9);
+      opacity: 0;
+    }
+    .cImg {
+      width: min(36rem, 88vw);
+      height: min(38vh, 16rem);
+      object-fit: cover;
+      border: 1px solid rgba(242, 232, 213, 0.25);
+      opacity: 0;
+      background: rgba(30, 24, 18, 0.6);
+    }
+    .cLink {
+      display: inline-block;
+      margin-top: 0.4rem;
+      color: #f2e8d5;
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+      opacity: 0;
+      border-bottom: 1px solid rgba(196, 165, 116, 0.7);
+      text-decoration: none;
+      padding-bottom: 0.15rem;
+    }
+    .cLink:hover { color: #c4a574; }
+    .cList {
+      list-style: none;
+      text-align: left;
+      max-width: 32rem;
+      width: 100%;
+      opacity: 0;
+    }
+    .cSlide.active .cList {
+      animation: slideUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+    }
+    .cList li {
+      position: relative;
+      padding: 0.45rem 0 0.45rem 1.2rem;
+      font-size: clamp(0.95rem, 2vw, 1.1rem);
+      line-height: 1.45;
+      color: rgba(242, 232, 213, 0.92);
+      border-bottom: 1px solid rgba(242, 232, 213, 0.08);
+    }
+    .cList li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.95rem;
+      width: 0.4rem;
+      height: 0.4rem;
+      border-radius: 50%;
+      background: #c4a574;
+    }
+
+    #collegeDots {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1.6rem;
+    }
+    #collegeDots span {
+      width: 0.4rem;
+      height: 0.4rem;
+      border-radius: 50%;
+      background: rgba(242, 232, 213, 0.25);
+    }
+    #collegeDots span.on { background: #c4a574; transform: scale(1.2); }
+
+    #collegeNext {
+      margin-top: 1.4rem;
+      appearance: none;
+      border: 1px solid rgba(242, 232, 213, 0.4);
+      background: rgba(242, 232, 213, 0.08);
+      color: #f2e8d5;
+      font-family: inherit;
+      font-size: 0.9rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 0.8rem 1.7rem;
+      cursor: pointer;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(8px);
+      transition: opacity 0.4s, transform 0.4s, background 0.2s;
+    }
+    #collegeNext.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    #collegeNext:hover {
+      background: rgba(242, 232, 213, 0.16);
+    }
+
+    #galleryLoading {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.1rem;
+      background: rgba(8, 6, 4, 0.82);
+      backdrop-filter: blur(10px);
+      color: #f2e8d5;
+      font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+      text-align: center;
+      padding: 2rem;
+    }
+    #galleryLoading.open { display: flex; }
+    #galleryLoading h2 {
+      font-weight: 400;
+      font-size: clamp(1.4rem, 3.5vw, 2rem);
+      letter-spacing: 0.1em;
+    }
+    #galleryLoading p {
+      font-size: 0.95rem;
+      opacity: 0.75;
+      letter-spacing: 0.04em;
+      min-height: 1.4em;
+    }
+    #loadBar {
+      width: min(22rem, 70vw);
+      height: 0.35rem;
+      background: rgba(242, 232, 213, 0.15);
+      border: 1px solid rgba(242, 232, 213, 0.25);
+      overflow: hidden;
+    }
+    #loadBarFill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #c4a574, #f2e8d5);
+      transition: width 0.25s ease;
+    }
+    #loadSpinner {
+      width: 2.2rem;
+      height: 2.2rem;
+      border: 2px solid rgba(242, 232, 213, 0.2);
+      border-top-color: #c4a574;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="intro">
+    <div id="introBrand">HBCU Gallery</div>
+    <div id="slideStage">
+      <article class="slide" data-slide="0">
+        <p class="slideKicker">Introduction</p>
+        <h2 class="slideTitle">What is an HBCU?</h2>
+        <p class="slideBody">
+          Historically Black Colleges and Universities are institutions founded to educate Black Americans when most colleges barred them from enrollment.
+        </p>
+      </article>
+      <article class="slide" data-slide="1">
+        <p class="slideKicker">A lasting mission</p>
+        <h2 class="slideTitle">Built for access</h2>
+        <p class="slideBody">
+          Most HBCUs began before 1964. They opened doors to higher learning, leadership, and professions that segregation had closed.
+        </p>
+      </article>
+      <article class="slide" data-slide="2">
+        <p class="slideKicker">Legacy</p>
+        <h2 class="slideTitle">Where leaders rise</h2>
+        <p class="slideBody">
+          From medicine and law to arts, science, and civil rights, HBCU alumni have shaped American culture, scholarship, and public life.
+        </p>
+      </article>
+      <article class="slide" data-slide="3">
+        <p class="slideKicker">This gallery</p>
+        <h2 class="slideTitle">Walk the states</h2>
+        <p class="slideBody">
+          Explore schools arranged by state around the hall and on the inner pillars. Press Enter Gallery to step inside.
+        </p>
+      </article>
+    </div>
+    <div id="introDots" aria-hidden="true"></div>
+    <button type="button" id="introNext">Next</button>
+  </div>
+
+  <div id="hint">
+    <div>
+      <h1>HBCU Gallery</h1>
+      <p>Click to enter · WASD walk · Mouse look · M map · Esc release</p>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</div>
+    <div>Mouse look · <kbd>Esc</kbd> unlock</div>
+    <div><kbd>M</kbd> open / close map</div>
+  </div>
+
+  <div id="mapOverlay">
+    <div id="mapPanel">
+      <h2>Gallery Map</h2>
+      <canvas id="mapCanvas" width="700" height="700"></canvas>
+      <div id="mapHint">
+        Scroll to zoom · Drag to pan · White arrow is you · <kbd style="border:1px solid rgba(242,232,213,.35);padding:0 .3em;">M</kbd> closes
+      </div>
+    </div>
+  </div>
+
+  <div id="crosshair"></div>
+  <div id="lookPrompt">Click to read</div>
+
+  <div id="collegeOverlay">
+    <button type="button" id="collegeBack">← Back</button>
+    <div id="collegeStage"></div>
+    <div id="collegeDots" aria-hidden="true"></div>
+    <button type="button" id="collegeNext">Next</button>
+  </div>
+
+  <div id="galleryLoading">
+    <div id="loadSpinner" aria-hidden="true"></div>
+    <h2>Preparing the gallery</h2>
+    <p id="loadStatus">Loading school logos…</p>
+    <div id="loadBar"><div id="loadBarFill"></div></div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
+
+    // ——— Procedural textures ———
+    function makeWallTexture() {
+      const size = 512;
+      const c = document.createElement("canvas");
+      c.width = c.height = size;
+      const ctx = c.getContext("2d");
+
+      // Warm plaster base
+      const g = ctx.createLinearGradient(0, 0, size, size);
+      g.addColorStop(0, "#d8cfc0");
+      g.addColorStop(0.5, "#cfc4b2");
+      g.addColorStop(1, "#c4b8a4");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+
+      // Fine grain
+      const img = ctx.getImageData(0, 0, size, size);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (Math.random() - 0.5) * 18;
+        d[i] = clamp(d[i] + n);
+        d[i + 1] = clamp(d[i + 1] + n);
+        d[i + 2] = clamp(d[i + 2] + n);
+      }
+      ctx.putImageData(img, 0, 0);
+
+      // Soft vertical panel seams
+      ctx.strokeStyle = "rgba(90, 70, 50, 0.12)";
+      ctx.lineWidth = 2;
+      for (let x = 64; x < size; x += 128) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, size);
+        ctx.stroke();
+      }
+
+      // Subtle mottling blotches
+      for (let i = 0; i < 40; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const r = 20 + Math.random() * 60;
+        const blotch = ctx.createRadialGradient(x, y, 0, x, y, r);
+        blotch.addColorStop(0, "rgba(160, 140, 110, 0.08)");
+        blotch.addColorStop(1, "rgba(160, 140, 110, 0)");
+        ctx.fillStyle = blotch;
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function makeFloorTexture() {
+      const size = 1024;
+      const c = document.createElement("canvas");
+      c.width = c.height = size;
+      const ctx = c.getContext("2d");
+
+      ctx.fillStyle = "#241f1b";
+      ctx.fillRect(0, 0, size, size);
+
+      const tile = 64;
+      for (let y = 0; y < size; y += tile) {
+        for (let x = 0; x < size; x += tile) {
+          const checker = ((x / tile) + (y / tile)) % 2 === 0;
+          const shade = (checker ? 42 : 34) + Math.floor(Math.random() * 12);
+          ctx.fillStyle = `rgb(${shade + 10},${shade},${shade - 8})`;
+          ctx.fillRect(x + 1, y + 1, tile - 2, tile - 2);
+
+          // Marble-like veins
+          ctx.strokeStyle = `rgba(${90 + Math.random() * 40},${80 + Math.random() * 30},${65 + Math.random() * 20},0.18)`;
+          ctx.lineWidth = 1 + Math.random();
+          ctx.beginPath();
+          let vx = x + Math.random() * tile;
+          let vy = y + Math.random() * tile;
+          ctx.moveTo(vx, vy);
+          for (let s = 0; s < 4; s++) {
+            vx += (Math.random() - 0.5) * 28;
+            vy += (Math.random() - 0.5) * 28;
+            ctx.lineTo(vx, vy);
+          }
+          ctx.stroke();
+
+          for (let i = 0; i < 18; i++) {
+            const fx = x + 3 + Math.random() * (tile - 6);
+            const fy = y + 3 + Math.random() * (tile - 6);
+            ctx.fillStyle = `rgba(${70 + Math.random() * 50}, ${60 + Math.random() * 35}, ${48 + Math.random() * 25}, 0.28)`;
+            ctx.beginPath();
+            ctx.arc(fx, fy, 0.6 + Math.random() * 1.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      ctx.strokeStyle = "rgba(10, 8, 6, 0.65)";
+      ctx.lineWidth = 2;
+      for (let i = 0; i <= size; i += tile) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, size);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(size, i);
+        ctx.stroke();
+      }
+
+      // Polished highlight sweeps
+      for (let i = 0; i < 10; i++) {
+        const y = Math.random() * size;
+        const band = ctx.createLinearGradient(0, y - 28, 0, y + 28);
+        band.addColorStop(0, "rgba(255,255,255,0)");
+        band.addColorStop(0.5, "rgba(255,245,230,0.055)");
+        band.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = band;
+        ctx.fillRect(0, y - 28, size, 56);
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 16;
+      return tex;
+    }
+
+    function makeCeilingTexture() {
+      const size = 1024;
+      const c = document.createElement("canvas");
+      c.width = c.height = size;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#ebe4d6";
+      ctx.fillRect(0, 0, size, size);
+
+      const img = ctx.getImageData(0, 0, size, size);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (Math.random() - 0.5) * 12;
+        d[i] = clamp(d[i] + n);
+        d[i + 1] = clamp(d[i + 1] + n);
+        d[i + 2] = clamp(d[i + 2] + n);
+      }
+      ctx.putImageData(img, 0, 0);
+
+      // Coffered grid
+      const cell = 128;
+      for (let y = 0; y < size; y += cell) {
+        for (let x = 0; x < size; x += cell) {
+          ctx.strokeStyle = "rgba(120, 100, 75, 0.22)";
+          ctx.lineWidth = 10;
+          ctx.strokeRect(x + 10, y + 10, cell - 20, cell - 20);
+          ctx.strokeStyle = "rgba(255, 250, 240, 0.2)";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x + 22, y + 22, cell - 44, cell - 44);
+          ctx.fillStyle = "rgba(200, 185, 160, 0.08)";
+          ctx.fillRect(x + 28, y + 28, cell - 56, cell - 56);
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function makeMarbleTexture() {
+      const size = 512;
+      const c = document.createElement("canvas");
+      c.width = c.height = size;
+      const ctx = c.getContext("2d");
+      const g = ctx.createLinearGradient(0, 0, size, size);
+      g.addColorStop(0, "#f2ebe0");
+      g.addColorStop(0.5, "#e4dbcd");
+      g.addColorStop(1, "#d8cebe");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+      for (let i = 0; i < 28; i++) {
+        ctx.strokeStyle = `rgba(${140 + Math.random() * 40},${120 + Math.random() * 30},${100 + Math.random() * 20},0.22)`;
+        ctx.lineWidth = 1 + Math.random() * 2.5;
+        ctx.beginPath();
+        let x = Math.random() * size;
+        let y = Math.random() * size;
+        ctx.moveTo(x, y);
+        for (let s = 0; s < 8; s++) {
+          x += (Math.random() - 0.45) * 70;
+          y += (Math.random() - 0.5) * 55;
+          ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      const img = ctx.getImageData(0, 0, size, size);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (Math.random() - 0.5) * 14;
+        d[i] = clamp(d[i] + n);
+        d[i + 1] = clamp(d[i + 1] + n);
+        d[i + 2] = clamp(d[i + 2] + n);
+      }
+      ctx.putImageData(img, 0, 0);
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function makeWoodTexture() {
+      const size = 512;
+      const c = document.createElement("canvas");
+      c.width = c.height = size;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#4a3828";
+      ctx.fillRect(0, 0, size, size);
+      for (let x = 0; x < size; x++) {
+        const n = Math.sin(x * 0.09) * 8 + Math.sin(x * 0.31) * 4 + (Math.random() - 0.5) * 6;
+        ctx.fillStyle = `rgb(${68 + n},${52 + n * 0.7},${36 + n * 0.4})`;
+        ctx.fillRect(x, 0, 1, size);
+      }
+      for (let i = 0; i < 40; i++) {
+        const y = Math.random() * size;
+        ctx.strokeStyle = `rgba(30, 20, 12, ${0.08 + Math.random() * 0.12})`;
+        ctx.lineWidth = 1 + Math.random() * 2;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.bezierCurveTo(size * 0.3, y + (Math.random() - 0.5) * 20, size * 0.7, y + (Math.random() - 0.5) * 20, size, y);
+        ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function clamp(v) {
+      return Math.max(0, Math.min(255, v | 0));
+    }
+
+    // ——— Scene ———
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x14110e);
+    scene.fog = new THREE.Fog(0x14110e, 40, 85);
+
+    const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 120);
+    camera.position.set(0, 1.6, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    document.body.appendChild(renderer.domElement);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    scene.add(new THREE.AmbientLight(0xfff4e8, 0.55));
+    scene.add(new THREE.HemisphereLight(0xfff2e0, 0x2a241c, 0.6));
+
+    const EXHIBIT_IMG_DATA = "data:image/webp;base64,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";
+
+    // ——— HBCU data (same-state schools stay together) ———
+    const HBCU_BY_STATE = [
+      {
+        state: "Alabama",
+        color: "#b83a2a",
+        schools: [
+          ["AAMU", "Alabama A&M University", "Huntsville"],
+          ["ASU", "Alabama State University", "Montgomery"],
+          ["Stillman", "Stillman College", "Tuscaloosa"],
+          ["Talladega", "Talladega College", "Talladega"],
+          ["TU", "Tuskegee University", "Tuskegee"],
+        ],
+      },
+      {
+        state: "Delaware",
+        color: "#1f5f8b",
+        schools: [["DSU", "Delaware State University", "Dover"]],
+      },
+      {
+        state: "District of Columbia",
+        color: "#4a3f8c",
+        schools: [
+          ["UDC", "University of the District of Columbia", "Washington, D.C."],
+          ["Howard", "Howard University", "Washington, D.C."],
+        ],
+      },
+      {
+        state: "Florida",
+        color: "#c47a1a",
+        schools: [
+          ["BCU", "Bethune-Cookman University", "Daytona Beach"],
+          ["FAMU", "Florida A&M University", "Tallahassee"],
+        ],
+      },
+      {
+        state: "Georgia",
+        color: "#1a6b4a",
+        schools: [
+          ["ALSU", "Albany State University", "Albany"],
+          ["CAU", "Clark Atlanta University", "Atlanta"],
+          ["FVSU", "Fort Valley State University", "Fort Valley"],
+          ["Morehouse", "Morehouse College", "Atlanta"],
+          ["MSM", "Morehouse School of Medicine", "Atlanta"],
+          ["MBC", "Morris Brown College", "Atlanta"],
+          ["Paine", "Paine College", "Augusta"],
+          ["SSU", "Savannah State University", "Savannah"],
+          ["Spelman", "Spelman College", "Atlanta"],
+        ],
+      },
+      {
+        state: "Kentucky",
+        color: "#8b4518",
+        schools: [["KSU", "Kentucky State University", "Frankfort"]],
+      },
+      {
+        state: "Louisiana",
+        color: "#2f6f8f",
+        schools: [
+          ["Dillard", "Dillard University", "New Orleans"],
+          ["GSU", "Grambling State University", "Grambling"],
+          ["SUBR", "Southern University and A&M College", "Baton Rouge"],
+          ["XULA", "Xavier University", "New Orleans"],
+        ],
+      },
+      {
+        state: "Maryland",
+        color: "#8b1e3f",
+        schools: [
+          ["BSU", "Bowie State University", "Bowie"],
+          ["Coppin", "Coppin State University", "Baltimore"],
+          ["UMES", "University of Maryland Eastern Shore", "Princess Anne"],
+          ["Morgan", "Morgan State University", "Baltimore"],
+        ],
+      },
+      {
+        state: "Mississippi",
+        color: "#3d5a80",
+        schools: [
+          ["Alcorn", "Alcorn State University", "Lorman"],
+          ["JSU", "Jackson State University", "Jackson"],
+          ["MVSU", "Mississippi Valley State University", "Itta Bena"],
+          ["Rust", "Rust College", "Holly Springs"],
+          ["Tougaloo", "Tougaloo College", "Tougaloo"],
+        ],
+      },
+      {
+        state: "Missouri",
+        color: "#6b4f2a",
+        schools: [["LU-MO", "Lincoln University", "Jefferson City"]],
+      },
+      {
+        state: "North Carolina",
+        color: "#0d5c63",
+        schools: [
+          ["Bennett", "Bennett College", "Greensboro"],
+          ["JCSU", "Johnson C. Smith University", "Charlotte"],
+          ["NCCU", "North Carolina Central University", "Durham"],
+          ["N.C. A&T", "North Carolina A&T State University", "Greensboro"],
+          ["Shaw", "Shaw University", "Raleigh"],
+          ["WSSU", "Winston-Salem State University", "Winston-Salem"],
+        ],
+      },
+      {
+        state: "Oklahoma",
+        color: "#9c4221",
+        schools: [["Langston", "Langston University", "Langston"]],
+      },
+      {
+        state: "Pennsylvania",
+        color: "#2c5f2d",
+        schools: [["LU-PA", "The Lincoln University", "Lincoln University"]],
+      },
+      {
+        state: "South Carolina",
+        color: "#7a1f2b",
+        schools: [
+          ["Benedict", "Benedict College", "Columbia"],
+          ["Claflin", "Claflin University", "Orangeburg"],
+          ["SCSU", "South Carolina State University", "Orangeburg"],
+        ],
+      },
+      {
+        state: "Tennessee",
+        color: "#3f5d8a",
+        schools: [
+          ["Fisk", "Fisk University", "Nashville"],
+          ["Meharry", "Meharry Medical College", "Nashville"],
+          ["TSU", "Tennessee State University", "Nashville"],
+        ],
+      },
+      {
+        state: "Texas",
+        color: "#a05a2c",
+        schools: [["PVAMU", "Prairie View A&M University", "Prairie View"]],
+      },
+      {
+        state: "Virginia",
+        color: "#234e70",
+        schools: [
+          ["Hampton", "Hampton University", "Hampton"],
+          ["NSU", "Norfolk State University", "Norfolk"],
+        ],
+      },
+    ];
+
+    // Smaller states → interior pillars (~6 each). Larger states stay on outer wall.
+    const PILLAR_PLANS = [
+      ["Delaware", "District of Columbia", "Florida", "Kentucky"],
+      ["Missouri", "Oklahoma", "Pennsylvania", "Texas", "Virginia"],
+      ["South Carolina", "Tennessee"],
+    ];
+    const pillarStateSet = new Set(PILLAR_PLANS.flat());
+    const OUTER_STATES = HBCU_BY_STATE.filter((g) => !pillarStateSet.has(g.state));
+    const PILLAR_GROUPS = PILLAR_PLANS.map((names) =>
+      names.map((name) => HBCU_BY_STATE.find((g) => g.state === name))
+    );
+
+    const OUTER_COUNT = OUTER_STATES.reduce((n, g) => n + g.schools.length, 0);
+    const exhibitArtMats = {};
+
+    // Curated profiles (official sites + highlights). Images loaded from Wikipedia when opened.
+    const COLLEGE_META = {
+      AAMU: {
+        website: "https://www.aamu.edu/",
+        founded: 1875,
+        wiki: "Alabama_A&M_University",
+        tagline: "Start Here, Go Anywhere",
+        about:
+          "Alabama A&M University is a public land-grant HBCU in Normal, near Huntsville. It is known for STEM, agriculture, and engineering pathways tied to the region’s research economy.",
+        highlights: [
+          "Public land-grant university on “The Hill”",
+          "Strong programs in engineering, agriculture, and education",
+          "Part of Alabama’s higher-education and research corridor",
+        ],
+      },
+      ASU: {
+        website: "https://www.alasu.edu/",
+        founded: 1867,
+        wiki: "Alabama_State_University",
+        tagline: "The Hornets",
+        about:
+          "Alabama State University in Montgomery is one of the nation’s oldest public HBCUs, with deep roots in teacher education and a vibrant campus culture in the state capital.",
+        highlights: [
+          "Founded to train teachers after emancipation",
+          "Located in Montgomery, a center of civil-rights history",
+          "Offers undergraduate and graduate programs across many fields",
+        ],
+      },
+      Stillman: {
+        website: "https://www.stillman.edu/",
+        founded: 1876,
+        wiki: "Stillman_College",
+        tagline: "A Presbyterian HBCU in Tuscaloosa",
+        about:
+          "Stillman College is a private liberal-arts HBCU affiliated with the Presbyterian Church (USA), emphasizing leadership, faith, and community service.",
+        highlights: [
+          "Private liberal-arts college in Tuscaloosa",
+          "Historic campus with a close-knit student community",
+          "Focus on leadership and service",
+        ],
+      },
+      Talladega: {
+        website: "https://www.talladega.edu/",
+        founded: 1867,
+        wiki: "Talladega_College",
+        tagline: "Alabama’s oldest private HBCU",
+        about:
+          "Talladega College is Alabama’s oldest private historically Black college, known for liberal arts education and landmarks such as Savery Library and the Amistad murals.",
+        highlights: [
+          "Oldest private HBCU in Alabama",
+          "Home of the celebrated Amistad murals",
+          "Liberal arts tradition with a historic campus",
+        ],
+      },
+      TU: {
+        website: "https://www.tuskegee.edu/",
+        founded: 1881,
+        wiki: "Tuskegee_University",
+        tagline: "The legacy of Booker T. Washington",
+        about:
+          "Tuskegee University is a private land-grant HBCU founded by Booker T. Washington. It is famed for engineering, veterinary medicine, architecture, and the Tuskegee Airmen legacy.",
+        highlights: [
+          "Founded by Booker T. Washington",
+          "Nationally known veterinary and engineering programs",
+          "Home of the Tuskegee Airmen training story",
+        ],
+      },
+      DSU: {
+        website: "https://www.desu.edu/",
+        founded: 1891,
+        wiki: "Delaware_State_University",
+        tagline: "Making our mark on the world",
+        about:
+          "Delaware State University is the state’s public HBCU and land-grant institution, with campuses centered in Dover and growing research and professional programs.",
+        highlights: [
+          "Delaware’s public land-grant HBCU",
+          "Research activity across sciences and agriculture",
+          "Main campus in Dover",
+        ],
+      },
+      UDC: {
+        website: "https://www.udc.edu/",
+        founded: 1851,
+        wiki: "University_of_the_District_of_Columbia",
+        tagline: "The public university of D.C.",
+        about:
+          "The University of the District of Columbia is the only public university in Washington, D.C., and the nation’s only exclusively urban land-grant university.",
+        highlights: [
+          "Only public university in Washington, D.C.",
+          "Urban land-grant mission",
+          "Career-focused programs for D.C. residents and beyond",
+        ],
+      },
+      Howard: {
+        website: "https://www.howard.edu/",
+        founded: 1867,
+        wiki: "Howard_University",
+        tagline: "Truth and Service",
+        about:
+          "Howard University is a private research HBCU in Washington, D.C., renowned for law, medicine, business, arts, and producing generations of national leaders.",
+        highlights: [
+          "Premier research HBCU in the nation’s capital",
+          "Historic strength in law, medicine, and the arts",
+          "Alumni network across public life and culture",
+        ],
+      },
+      BCU: {
+        website: "https://www.cookman.edu/",
+        founded: 1904,
+        wiki: "Bethune-Cookman_University",
+        tagline: "Enter to Learn, Depart to Serve",
+        about:
+          "Bethune-Cookman University in Daytona Beach was founded by educator Mary McLeod Bethune and remains a private Methodist HBCU with a strong service ethos.",
+        highlights: [
+          "Founded by Mary McLeod Bethune",
+          "Private university in Daytona Beach",
+          "Mission rooted in service and leadership",
+        ],
+      },
+      FAMU: {
+        website: "https://www.famu.edu/",
+        founded: 1887,
+        wiki: "Florida_A&M_University",
+        tagline: "Excellence with caring",
+        about:
+          "Florida A&M University in Tallahassee is a public land-grant HBCU known for pharmacy, business, agriculture, and one of the nation’s most celebrated marching bands.",
+        highlights: [
+          "Public land-grant HBCU in Tallahassee",
+          "Highly ranked pharmacy and professional programs",
+          "Home of the famed Marching 100",
+        ],
+      },
+      ALSU: {
+        website: "https://www.asurams.edu/",
+        founded: 1903,
+        wiki: "Albany_State_University",
+        tagline: "The Golden Rams",
+        about:
+          "Albany State University is a public HBCU in southwest Georgia offering comprehensive undergraduate and graduate programs with a growing health-sciences profile.",
+        highlights: [
+          "Public HBCU in Albany, Georgia",
+          "Expanding health and professional programs",
+          "Part of the University System of Georgia",
+        ],
+      },
+      CAU: {
+        website: "https://www.cau.edu/",
+        founded: 1988,
+        wiki: "Clark_Atlanta_University",
+        tagline: "Culture for Service",
+        about:
+          "Clark Atlanta University was formed by the consolidation of Atlanta University and Clark College. It is a private research HBCU in Atlanta’s AUC consortium.",
+        highlights: [
+          "Private research university in the AUC",
+          "Roots in Atlanta University (1865) and Clark College (1869)",
+          "Known for social sciences, business, and STEM",
+        ],
+      },
+      FVSU: {
+        website: "https://www.fvsu.edu/",
+        founded: 1895,
+        wiki: "Fort_Valley_State_University",
+        tagline: "Georgia’s only HBCU land-grant",
+        about:
+          "Fort Valley State University is Georgia’s only public land-grant HBCU, with notable strengths in agriculture, education, and STEM.",
+        highlights: [
+          "Only land-grant HBCU in Georgia",
+          "Agriculture and STEM tradition",
+          "Campus in Fort Valley",
+        ],
+      },
+      Morehouse: {
+        website: "https://www.morehouse.edu/",
+        founded: 1867,
+        wiki: "Morehouse_College",
+        tagline: "The nation’s only HBCU for men",
+        about:
+          "Morehouse College in Atlanta is a private liberal-arts HBCU for men, famous for producing leaders in civil rights, business, ministry, and public service.",
+        highlights: [
+          "Private men’s liberal-arts college in the AUC",
+          "Alumni include Dr. Martin Luther King Jr.",
+          "Strong tradition in leadership and the humanities",
+        ],
+      },
+      MSM: {
+        website: "https://www.msm.edu/",
+        founded: 1975,
+        wiki: "Morehouse_School_of_Medicine",
+        tagline: "Leading the creation of health equity",
+        about:
+          "Morehouse School of Medicine in Atlanta is a private medical school focused on primary care, community health, and reducing health disparities.",
+        highlights: [
+          "Independent medical school in Atlanta",
+          "Mission centered on health equity",
+          "Strong primary-care and public-health emphasis",
+        ],
+      },
+      MBC: {
+        website: "https://www.morrisbrown.edu/",
+        founded: 1881,
+        wiki: "Morris_Brown_College",
+        tagline: "A historic Atlanta HBCU",
+        about:
+          "Morris Brown College is a private Methodist HBCU in Atlanta with a storied history and a renewed focus on accessible undergraduate education.",
+        highlights: [
+          "Founded by African American Methodists",
+          "Historic campus in Atlanta",
+          "Commitment to access and student success",
+        ],
+      },
+      Paine: {
+        website: "https://www.paine.edu/",
+        founded: 1882,
+        wiki: "Paine_College",
+        tagline: "Private liberal arts in Augusta",
+        about:
+          "Paine College in Augusta is a private Methodist HBCU offering liberal-arts education with a mission of leadership and service.",
+        highlights: [
+          "Private HBCU in Augusta, Georgia",
+          "United Methodist heritage",
+          "Liberal-arts curriculum",
+        ],
+      },
+      SSU: {
+        website: "https://www.savannahstate.edu/",
+        founded: 1890,
+        wiki: "Savannah_State_University",
+        tagline: "Oldest public HBCU in Georgia",
+        about:
+          "Savannah State University is Georgia’s oldest public HBCU, set on a coastal campus with programs spanning business, sciences, and marine sciences.",
+        highlights: [
+          "Oldest public HBCU in Georgia",
+          "Coastal campus near Savannah",
+          "Known for marine sciences and business",
+        ],
+      },
+      Spelman: {
+        website: "https://www.spelman.edu/",
+        founded: 1881,
+        wiki: "Spelman_College",
+        tagline: "A choice to change the world",
+        about:
+          "Spelman College in Atlanta is a private liberal-arts HBCU for women and one of the most selective HBCUs, celebrated for STEM, arts, and leadership.",
+        highlights: [
+          "Private women’s college in the AUC",
+          "Highly regarded liberal-arts and STEM programs",
+          "Global network of Spelman alumnae",
+        ],
+      },
+      KSU: {
+        website: "https://www.kysu.edu/",
+        founded: 1886,
+        wiki: "Kentucky_State_University",
+        tagline: "Kentucky’s public HBCU",
+        about:
+          "Kentucky State University in Frankfort is the commonwealth’s public land-grant HBCU, with strengths in agriculture, aquaculture, and public service.",
+        highlights: [
+          "Land-grant HBCU in Kentucky’s capital",
+          "Known for aquaculture and agriculture research",
+          "Comprehensive public university",
+        ],
+      },
+      Dillard: {
+        website: "https://www.dillard.edu/",
+        founded: 1869,
+        wiki: "Dillard_University",
+        tagline: "Above the average, beyond the ordinary",
+        about:
+          "Dillard University in New Orleans is a private Methodist HBCU known for nursing, sciences, and a beautiful historic campus along Gentilly Boulevard.",
+        highlights: [
+          "Private university in New Orleans",
+          "Strong nursing and science programs",
+          "United Methodist affiliation",
+        ],
+      },
+      GSU: {
+        website: "https://www.gram.edu/",
+        founded: 1901,
+        wiki: "Grambling_State_University",
+        tagline: "Where everybody is somebody",
+        about:
+          "Grambling State University is a public HBCU in northern Louisiana, famous for its football tradition, World Famed Tiger Marching Band, and alumni excellence.",
+        highlights: [
+          "Public HBCU in Grambling, Louisiana",
+          "Legendary band and athletics culture",
+          "Programs across education, business, and STEM",
+        ],
+      },
+      SUBR: {
+        website: "https://www.subr.edu/",
+        founded: 1880,
+        wiki: "Southern_University_and_A&M_College",
+        tagline: "The Jaguar Nation",
+        about:
+          "Southern University and A&M College in Baton Rouge is the flagship of the Southern University System and a major public land-grant HBCU.",
+        highlights: [
+          "Flagship of the Southern University System",
+          "Land-grant mission in Baton Rouge",
+          "Broad undergraduate and graduate offerings",
+        ],
+      },
+      XULA: {
+        website: "https://www.xula.edu/",
+        founded: 1925,
+        wiki: "Xavier_University_of_Louisiana",
+        tagline: "America’s top Black Catholic university",
+        about:
+          "Xavier University of Louisiana in New Orleans is a private Catholic HBCU nationally known for preparing students for medical and pharmacy careers.",
+        highlights: [
+          "Only Catholic HBCU in the United States",
+          "National leader in sending Black students to medical school",
+          "Strong pharmacy and STEM pipeline",
+        ],
+      },
+      BSU: {
+        website: "https://www.bowiestate.edu/",
+        founded: 1865,
+        wiki: "Bowie_State_University",
+        tagline: "Maryland’s oldest HBCU",
+        about:
+          "Bowie State University is Maryland’s oldest HBCU and a public comprehensive university between Baltimore and Washington, D.C.",
+        highlights: [
+          "Oldest HBCU in Maryland",
+          "Public university in the Baltimore–D.C. corridor",
+          "Growing STEM and professional programs",
+        ],
+      },
+      Coppin: {
+        website: "https://www.coppin.edu/",
+        founded: 1900,
+        wiki: "Coppin_State_University",
+        tagline: "A public HBCU in Baltimore",
+        about:
+          "Coppin State University is a public HBCU in Baltimore with a mission of urban education, nursing, and community engagement.",
+        highlights: [
+          "Public university in West Baltimore",
+          "Known for nursing and education",
+          "Urban mission and community partnerships",
+        ],
+      },
+      UMES: {
+        website: "https://www.umes.edu/",
+        founded: 1886,
+        wiki: "University_of_Maryland_Eastern_Shore",
+        tagline: "Maryland’s Eastern Shore land-grant",
+        about:
+          "The University of Maryland Eastern Shore in Princess Anne is a public land-grant HBCU with strengths in agriculture, pharmacy, and aviation sciences.",
+        highlights: [
+          "Land-grant HBCU on Maryland’s Eastern Shore",
+          "Pharmacy and agriculture programs",
+          "Part of the University System of Maryland",
+        ],
+      },
+      Morgan: {
+        website: "https://www.morgan.edu/",
+        founded: 1867,
+        wiki: "Morgan_State_University",
+        tagline: "Growing the future, leading the world",
+        about:
+          "Morgan State University in Baltimore is Maryland’s preeminent public urban research HBCU, with notable engineering, architecture, and business programs.",
+        highlights: [
+          "Maryland’s public urban research HBCU",
+          "Strong engineering and architecture colleges",
+          "Campus in Northeast Baltimore",
+        ],
+      },
+      Alcorn: {
+        website: "https://www.alcorn.edu/",
+        founded: 1871,
+        wiki: "Alcorn_State_University",
+        tagline: "Knowledge and character above all",
+        about:
+          "Alcorn State University is Mississippi’s oldest public HBCU and a land-grant institution with campuses rooted in agriculture and the liberal arts.",
+        highlights: [
+          "Oldest public HBCU in Mississippi",
+          "Land-grant university near Lorman",
+          "Agriculture, education, and STEM heritage",
+        ],
+      },
+      JSU: {
+        website: "https://www.jsums.edu/",
+        founded: 1877,
+        wiki: "Jackson_State_University",
+        tagline: "Challenging Minds, Changing Lives",
+        about:
+          "Jackson State University is a public research HBCU in Mississippi’s capital, known for business, education, STEM, and the Sonic Boom of the South.",
+        highlights: [
+          "Public research university in Jackson",
+          "Major HBCU band and athletics tradition",
+          "Comprehensive graduate and undergraduate programs",
+        ],
+      },
+      MVSU: {
+        website: "https://www.mvsu.edu/",
+        founded: 1950,
+        wiki: "Mississippi_Valley_State_University",
+        tagline: "The Valley of Champions",
+        about:
+          "Mississippi Valley State University in Itta Bena is a public HBCU serving the Mississippi Delta with accessible undergraduate and graduate education.",
+        highlights: [
+          "Public HBCU in the Mississippi Delta",
+          "Focus on access and regional impact",
+          "Programs in education, business, and arts",
+        ],
+      },
+      Rust: {
+        website: "https://www.rustcollege.edu/",
+        founded: 1866,
+        wiki: "Rust_College",
+        tagline: "One of the oldest HBCUs in Mississippi",
+        about:
+          "Rust College in Holly Springs is a private Methodist HBCU and one of the oldest historically Black colleges in the state.",
+        highlights: [
+          "Private liberal-arts HBCU",
+          "United Methodist heritage",
+          "Historic campus in Holly Springs",
+        ],
+      },
+      Tougaloo: {
+        website: "https://www.tougaloo.edu/",
+        founded: 1869,
+        wiki: "Tougaloo_College",
+        tagline: "Where history meets the future",
+        about:
+          "Tougaloo College near Jackson is a private liberal-arts HBCU celebrated for civil-rights activism and a strong pipeline to graduate and professional schools.",
+        highlights: [
+          "Private college near Jackson, Mississippi",
+          "Central role in the Freedom Movement",
+          "High rate of graduates continuing to advanced degrees",
+        ],
+      },
+      "LU-MO": {
+        website: "https://www.lincolnu.edu/",
+        founded: 1866,
+        wiki: "Lincoln_University_(Missouri)",
+        tagline: "Missouri’s public HBCU",
+        about:
+          "Lincoln University in Jefferson City was founded by African American Civil War veterans and remains Missouri’s public land-grant HBCU.",
+        highlights: [
+          "Founded by soldiers of the 62nd and 65th USCT",
+          "Public land-grant university in Jefferson City",
+          "Agriculture, education, and professional programs",
+        ],
+      },
+      Bennett: {
+        website: "https://www.bennett.edu/",
+        founded: 1873,
+        wiki: "Bennett_College",
+        tagline: "A women’s college in Greensboro",
+        about:
+          "Bennett College is a private Methodist HBCU for women in Greensboro, North Carolina, with a mission of sisterhood, scholarship, and service.",
+        highlights: [
+          "One of two HBCUs dedicated to women",
+          "Campus in Greensboro",
+          "United Methodist affiliation",
+        ],
+      },
+      JCSU: {
+        website: "https://www.jcsu.edu/",
+        founded: 1867,
+        wiki: "Johnson_C._Smith_University",
+        tagline: "Lifting as we climb",
+        about:
+          "Johnson C. Smith University in Charlotte is a private Presbyterian HBCU known for innovation, STEM, and a revitalized urban campus.",
+        highlights: [
+          "Private university in Charlotte",
+          "Presbyterian heritage",
+          "Emphasis on technology and leadership",
+        ],
+      },
+      NCCU: {
+        website: "https://www.nccu.edu/",
+        founded: 1910,
+        wiki: "North_Carolina_Central_University",
+        tagline: "Truth and Service",
+        about:
+          "North Carolina Central University in Durham is a public HBCU noted for law, nursing, and the arts within the UNC System.",
+        highlights: [
+          "Public HBCU in Durham’s Research Triangle",
+          "Well-known law and nursing programs",
+          "Part of the University of North Carolina System",
+        ],
+      },
+      "N.C. A&T": {
+        website: "https://www.ncat.edu/",
+        founded: 1891,
+        wiki: "North_Carolina_A&T_State_University",
+        tagline: "Aggies Do!",
+        about:
+          "North Carolina A&T State University in Greensboro is the nation’s largest HBCU by enrollment and a top producer of Black engineers.",
+        highlights: [
+          "Largest HBCU by enrollment",
+          "National leader in graduating Black engineers",
+          "Land-grant research university in Greensboro",
+        ],
+      },
+      Shaw: {
+        website: "https://www.shawu.edu/",
+        founded: 1865,
+        wiki: "Shaw_University",
+        tagline: "The founding HBCU of the South",
+        about:
+          "Shaw University in Raleigh is the oldest HBCU in the South and a private Baptist university with deep ties to civil-rights organizing.",
+        highlights: [
+          "Oldest HBCU in the South",
+          "Birthplace connections to SNCC history",
+          "Campus in downtown Raleigh",
+        ],
+      },
+      WSSU: {
+        website: "https://www.wssu.edu/",
+        founded: 1892,
+        wiki: "Winston-Salem_State_University",
+        tagline: "Enter to learn, depart to serve",
+        about:
+          "Winston-Salem State University is a public HBCU in North Carolina known for nursing, health sciences, and business within the UNC System.",
+        highlights: [
+          "Public HBCU in Winston-Salem",
+          "Strong nursing and health programs",
+          "Part of the UNC System",
+        ],
+      },
+      Langston: {
+        website: "https://www.langston.edu/",
+        founded: 1897,
+        wiki: "Langston_University",
+        tagline: "Oklahoma’s only HBCU",
+        about:
+          "Langston University is Oklahoma’s only HBCU and a public land-grant institution with campuses including the historic town of Langston.",
+        highlights: [
+          "Only HBCU in Oklahoma",
+          "Land-grant university",
+          "Agriculture, education, and professional studies",
+        ],
+      },
+      "LU-PA": {
+        website: "https://www.lincoln.edu/",
+        founded: 1854,
+        wiki: "Lincoln_University_(Pennsylvania)",
+        tagline: "America’s first degree-granting HBCU",
+        about:
+          "The Lincoln University in Pennsylvania is the nation’s first degree-granting HBCU, with a proud alumni legacy that includes Thurgood Marshall and Langston Hughes.",
+        highlights: [
+          "First degree-granting HBCU in the U.S.",
+          "Historic campus in Chester County, PA",
+          "Alumni include Thurgood Marshall and Langston Hughes",
+        ],
+      },
+      Benedict: {
+        website: "https://www.benedict.edu/",
+        founded: 1870,
+        wiki: "Benedict_College",
+        tagline: "A private HBCU in Columbia",
+        about:
+          "Benedict College in Columbia is a private Baptist HBCU offering career-focused liberal-arts and professional education.",
+        highlights: [
+          "Private university in Columbia, S.C.",
+          "Baptist heritage",
+          "Undergraduate professional pathways",
+        ],
+      },
+      Claflin: {
+        website: "https://www.claflin.edu/",
+        founded: 1869,
+        wiki: "Claflin_University",
+        tagline: "The world needs visionaries",
+        about:
+          "Claflin University in Orangeburg is a private Methodist HBCU consistently ranked among the top HBCUs for academic quality and student outcomes.",
+        highlights: [
+          "Private university in Orangeburg, S.C.",
+          "Frequently top-ranked HBCU",
+          "United Methodist affiliation",
+        ],
+      },
+      SCSU: {
+        website: "https://www.scsu.edu/",
+        founded: 1896,
+        wiki: "South_Carolina_State_University",
+        tagline: "The Home of the Bulldogs",
+        about:
+          "South Carolina State University in Orangeburg is the state’s public land-grant HBCU with programs from education to engineering technology.",
+        highlights: [
+          "Public land-grant HBCU in South Carolina",
+          "Campus in Orangeburg",
+          "Broad professional and STEM offerings",
+        ],
+      },
+      Fisk: {
+        website: "https://www.fisk.edu/",
+        founded: 1866,
+        wiki: "Fisk_University",
+        tagline: "Home of the Jubilee Singers",
+        about:
+          "Fisk University in Nashville is a private liberal-arts HBCU renowned for the Fisk Jubilee Singers, scholarship in the arts, and a historic campus.",
+        highlights: [
+          "Private university in Nashville",
+          "Fisk Jubilee Singers cultural legacy",
+          "Strong arts and sciences tradition",
+        ],
+      },
+      Meharry: {
+        website: "https://www.mmc.edu/",
+        founded: 1876,
+        wiki: "Meharry_Medical_College",
+        tagline: "Serving the underserved",
+        about:
+          "Meharry Medical College in Nashville is a private graduate health-sciences HBCU and one of the nation’s leading producers of Black physicians and dentists.",
+        highlights: [
+          "Private health-sciences HBCU in Nashville",
+          "Major producer of Black physicians and dentists",
+          "Mission focused on underserved communities",
+        ],
+      },
+      TSU: {
+        website: "https://www.tnstate.edu/",
+        founded: 1912,
+        wiki: "Tennessee_State_University",
+        tagline: "Think. Work. Serve.",
+        about:
+          "Tennessee State University in Nashville is a public land-grant HBCU with a large urban campus and strengths in engineering, health sciences, and agriculture.",
+        highlights: [
+          "Public land-grant HBCU in Nashville",
+          "Engineering and health-science programs",
+          "Urban research university profile",
+        ],
+      },
+      PVAMU: {
+        website: "https://www.pvamu.edu/",
+        founded: 1876,
+        wiki: "Prairie_View_A&M_University",
+        tagline: "Prairie View Produces Productive People",
+        about:
+          "Prairie View A&M University is a public land-grant HBCU northwest of Houston and a member of the Texas A&M University System.",
+        highlights: [
+          "Part of the Texas A&M University System",
+          "Land-grant HBCU near Houston",
+          "Strong engineering, nursing, and agriculture programs",
+        ],
+      },
+      Hampton: {
+        website: "https://www.hamptonu.edu/",
+        founded: 1868,
+        wiki: "Hampton_University",
+        tagline: "The Standard of Excellence",
+        about:
+          "Hampton University on the Virginia Peninsula is a private HBCU with a waterfront campus and notable programs in business, science, journalism, and pharmacy.",
+        highlights: [
+          "Private university in Hampton, Virginia",
+          "Historic waterfront campus",
+          "Broad professional and liberal-arts programs",
+        ],
+      },
+      NSU: {
+        website: "https://www.nsu.edu/",
+        founded: 1935,
+        wiki: "Norfolk_State_University",
+        tagline: "Your Path. Our Purpose. One Promise.",
+        about:
+          "Norfolk State University is a public HBCU in Virginia’s Hampton Roads region with strengths in STEM, business, and the arts.",
+        highlights: [
+          "Public HBCU in Norfolk, Virginia",
+          "Growing STEM and research profile",
+          "Part of Hampton Roads higher education",
+        ],
+      },
+    };
+
+    const ROOM_R = 20;
+    const ROOM_H = 4.8;
+    const WALL_SEG = 128;
+    const PED_WALL_OFFSET = 1.55;
+    const ART_Y = 2.65;
+    const IMG_W = 2.35;
+    const IMG_H = 1.4;
+    const FRAME_D = 0.05;
+    const PILLAR_R = 2.2;
+    const PILLAR_RING = 8;
+    const PILLAR_PED_R = PILLAR_R + 1.25;
+
+    const floorTex = makeFloorTexture();
+    floorTex.repeat.set(ROOM_R / 1.2, ROOM_R / 1.2);
+    const ceilTex = makeCeilingTexture();
+    ceilTex.repeat.set(ROOM_R / 2.8, ROOM_R / 2.8);
+
+    const floorMat = new THREE.MeshStandardMaterial({
+      map: floorTex,
+      roughness: 0.82,
+      metalness: 0,
+    });
+    const ceilMat = new THREE.MeshStandardMaterial({
+      map: ceilTex,
+      roughness: 0.98,
+      metalness: 0,
+    });
+    const trimMat = new THREE.MeshStandardMaterial({
+      color: 0x3a3028,
+      roughness: 0.85,
+      metalness: 0.02,
+    });
+    const fixtureMetal = new THREE.MeshStandardMaterial({
+      color: 0x3a3530,
+      roughness: 0.7,
+      metalness: 0.25,
+    });
+    const fixtureGlow = new THREE.MeshStandardMaterial({
+      color: 0xfff3d6,
+      emissive: 0xffe8b8,
+      emissiveIntensity: 2.2,
+      roughness: 0.75,
+      metalness: 0,
+    });
+    const pedMat = new THREE.MeshStandardMaterial({
+      color: 0xe8e2d6,
+      roughness: 0.88,
+      metalness: 0,
+    });
+    const pedDarkMat = new THREE.MeshStandardMaterial({
+      color: 0x2c2620,
+      roughness: 0.9,
+      metalness: 0,
+    });
+    const frameMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1612,
+      roughness: 0.8,
+      metalness: 0.04,
+    });
+
+    const brassMat = new THREE.MeshStandardMaterial({
+      color: 0x8a7348,
+      roughness: 0.45,
+      metalness: 0.55,
+    });
+    const marbleMap = makeMarbleTexture();
+    marbleMap.repeat.set(2, 2);
+    const marbleMat = new THREE.MeshStandardMaterial({
+      map: marbleMap,
+      color: 0xffffff,
+      roughness: 0.72,
+      metalness: 0.04,
+    });
+    const woodMap = makeWoodTexture();
+    woodMap.repeat.set(1.5, 1.5);
+    const woodMat = new THREE.MeshStandardMaterial({
+      map: woodMap,
+      color: 0xffffff,
+      roughness: 0.78,
+      metalness: 0.06,
+    });
+
+    // Tinted plaster for one state segment (geometry angle locks color to schools)
+    function makeStateWallTexture(hexColor) {
+      const size = 1024;
+      const c = document.createElement("canvas");
+      c.width = c.height = size;
+      const ctx = c.getContext("2d");
+      const g = ctx.createLinearGradient(0, 0, size, size);
+      g.addColorStop(0, "#e8dfd0");
+      g.addColorStop(0.5, "#ddd2c0");
+      g.addColorStop(1, "#d0c4b0");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+      const img = ctx.getImageData(0, 0, size, size);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (Math.random() - 0.5) * 16;
+        d[i] = clamp(d[i] + n);
+        d[i + 1] = clamp(d[i + 1] + n);
+        d[i + 2] = clamp(d[i + 2] + n);
+      }
+      ctx.putImageData(img, 0, 0);
+
+      // Raised panel moulding
+      ctx.strokeStyle = "rgba(80, 60, 40, 0.18)";
+      ctx.lineWidth = 10;
+      for (let x = 48; x < size; x += 256) {
+        ctx.strokeRect(x + 24, 48, 200, size - 96);
+        ctx.strokeStyle = "rgba(255, 250, 240, 0.12)";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(x + 36, 60, 176, size - 120);
+        ctx.strokeStyle = "rgba(80, 60, 40, 0.18)";
+        ctx.lineWidth = 10;
+      }
+
+      ctx.globalCompositeOperation = "multiply";
+      ctx.fillStyle = hexColor;
+      ctx.globalAlpha = 0.48;
+      ctx.fillRect(0, 0, size, size);
+      ctx.globalCompositeOperation = "overlay";
+      ctx.globalAlpha = 0.38;
+      ctx.fillRect(0, 0, size, size);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function makeAcronymTexture(abbr) {
+      const c = document.createElement("canvas");
+      c.width = 512;
+      c.height = 256;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#2a241c";
+      ctx.fillRect(0, 0, 512, 256);
+      ctx.fillStyle = "#f2e8d5";
+      ctx.font = "700 72px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(abbr, 256, 128);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function makeNameplateTexture(name, city) {
+      const c = document.createElement("canvas");
+      c.width = 1024;
+      c.height = 512;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#d8cfbc";
+      ctx.fillRect(0, 0, 1024, 512);
+      ctx.strokeStyle = "#5a4e40";
+      ctx.lineWidth = 10;
+      ctx.strokeRect(16, 16, 992, 480);
+
+      const maxWidth = 920;
+      const maxNameLines = 4;
+
+      function wrap(text, fontPx) {
+        ctx.font = `700 ${fontPx}px Georgia, serif`;
+        const words = text.split(" ");
+        const lines = [];
+        let line = "";
+        for (const w of words) {
+          const test = line ? line + " " + w : w;
+          if (ctx.measureText(test).width > maxWidth && line) {
+            lines.push(line);
+            line = w;
+          } else {
+            line = test;
+          }
+        }
+        if (line) lines.push(line);
+        // If a single word is too long, hard-break it
+        const fixed = [];
+        for (const ln of lines) {
+          if (ctx.measureText(ln).width <= maxWidth) {
+            fixed.push(ln);
+            continue;
+          }
+          let chunk = "";
+          for (const ch of ln) {
+            const test = chunk + ch;
+            if (ctx.measureText(test).width > maxWidth && chunk) {
+              fixed.push(chunk);
+              chunk = ch;
+            } else chunk = test;
+          }
+          if (chunk) fixed.push(chunk);
+        }
+        return fixed;
+      }
+
+      let fontPx = 64;
+      let lines = wrap(name, fontPx);
+      while ((lines.length > maxNameLines || lines.some((l) => {
+        ctx.font = `700 ${fontPx}px Georgia, serif`;
+        return ctx.measureText(l).width > maxWidth;
+      })) && fontPx > 36) {
+        fontPx -= 2;
+        lines = wrap(name, fontPx);
+      }
+
+      const lineH = fontPx * 1.15;
+      const blockH = lines.length * lineH;
+      const nameCenterY = 210;
+      const startY = nameCenterY - blockH / 2 + lineH / 2;
+
+      ctx.fillStyle = "#2a241c";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `700 ${fontPx}px Georgia, serif`;
+      lines.forEach((ln, i) => ctx.fillText(ln, 512, startY + i * lineH));
+
+      ctx.font = "600 32px Georgia, serif";
+      ctx.fillStyle = "#5a4e40";
+      ctx.fillText(city, 512, 420);
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function makeStateLabelTexture(stateName, hexColor) {
+      const c = document.createElement("canvas");
+      c.width = 512;
+      c.height = 128;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = hexColor;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(16, 24, 480, 80);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(16, 24, 480, 80);
+      ctx.fillStyle = "#f7f0e4";
+      ctx.font = "600 34px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(stateName.toUpperCase(), 256, 64);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    const tabletHits = [];
+    let hoveredTablet = null;
+
+    function makePedestal(abbr, name, city, stateName) {
+      const group = new THREE.Group();
+
+      // Stepped plinth
+      const plinth1 = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.08, 1.42), pedDarkMat);
+      plinth1.position.y = 0.04;
+      group.add(plinth1);
+      const plinth2 = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.1, 1.28), woodMat);
+      plinth2.position.y = 0.13;
+      group.add(plinth2);
+      const plinth3 = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.06, 1.12), pedDarkMat);
+      plinth3.position.y = 0.21;
+      group.add(plinth3);
+
+      // Shaft with slight taper look via stacked boxes
+      const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.78, 0.88), marbleMat);
+      shaft.position.y = 0.24 + 0.39;
+      group.add(shaft);
+
+      // Panel recesses on shaft faces
+      for (const [sx, sz, rx] of [
+        [0, 0.445, 0],
+        [0, -0.445, 0],
+        [0.445, 0, Math.PI / 2],
+        [-0.445, 0, Math.PI / 2],
+      ]) {
+        const panel = new THREE.Mesh(
+          new THREE.BoxGeometry(0.55, 0.58, 0.02),
+          pedMat
+        );
+        panel.position.set(sx, 0.63, sz);
+        panel.rotation.y = rx;
+        group.add(panel);
+      }
+
+      // Corner pilasters
+      for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.78, 0.08), pedMat);
+        rib.position.set(sx * 0.42, 0.63, sz * 0.42);
+        group.add(rib);
+        const ribCap = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.04, 0.1), brassMat);
+        ribCap.position.set(sx * 0.42, 1.02, sz * 0.42);
+        group.add(ribCap);
+      }
+
+      // Capital / cornice rings
+      const neck = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.05, 0.96), brassMat);
+      neck.position.y = 1.05;
+      group.add(neck);
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.1, 1.22), marbleMat);
+      top.position.y = 1.125;
+      group.add(top);
+      const topEdge = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.035, 1.3), woodMat);
+      topEdge.position.y = 1.19;
+      group.add(topEdge);
+
+      // Recessed acronym plaque — layers spaced to avoid z-fight
+      const plaqueBack = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.52, 0.05), woodMat);
+      plaqueBack.position.set(0, 0.7, 0.44);
+      group.add(plaqueBack);
+      const plaqueRim = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.56, 0.025), brassMat);
+      plaqueRim.position.set(0, 0.7, 0.485);
+      group.add(plaqueRim);
+      const acronym = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.92, 0.44),
+        new THREE.MeshStandardMaterial({
+          map: makeAcronymTexture(abbr),
+          roughness: 0.88,
+          metalness: 0,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
+        })
+      );
+      acronym.position.set(0, 0.7, 0.505);
+      group.add(acronym);
+
+      // Name tablet — body, then rim, then face clearly in front
+      const tablet = new THREE.Group();
+      tablet.position.set(0, 1.22, 0.1);
+
+      const tabletBody = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.6, 0.08), woodMat);
+      tabletBody.position.set(0, 0.3, 0);
+      tablet.add(tabletBody);
+      const tabletRim = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.66, 0.03), brassMat);
+      tabletRim.position.set(0, 0.3, 0.065);
+      tablet.add(tabletRim);
+      const tabletFace = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.08, 0.52),
+        new THREE.MeshStandardMaterial({
+          map: makeNameplateTexture(name, city),
+          roughness: 0.9,
+          metalness: 0,
+          depthWrite: true,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
+        })
+      );
+      tabletFace.position.set(0, 0.3, 0.09);
+      tablet.add(tabletFace);
+
+      const outline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(1.28, 0.7, 0.14)),
+        new THREE.LineBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.95,
+          depthTest: true,
+        })
+      );
+      outline.position.set(0, 0.3, 0.06);
+      outline.visible = false;
+      tablet.add(outline);
+
+      const hit = new THREE.Mesh(
+        new THREE.BoxGeometry(1.32, 0.72, 0.35),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hit.position.set(0, 0.3, 0.05);
+      hit.userData.isTabletHit = true;
+      hit.userData.abbr = abbr;
+      hit.userData.name = name;
+      hit.userData.city = city;
+      hit.userData.state = stateName;
+      hit.userData.outline = outline;
+      tablet.add(hit);
+      tabletHits.push(hit);
+
+      tablet.rotation.x = -Math.PI / 6;
+      group.add(tablet);
+
+      return group;
+    }
+
+    function makeFramedImage(texture, abbr) {
+      const group = new THREE.Group();
+
+      // Wall mount plate
+      const mount = new THREE.Mesh(
+        new THREE.BoxGeometry(IMG_W + 0.42, IMG_H + 0.42, 0.04),
+        woodMat
+      );
+      mount.position.z = -0.02;
+      group.add(mount);
+
+      const outer = new THREE.Mesh(
+        new THREE.BoxGeometry(IMG_W + 0.32, IMG_H + 0.32, 0.1),
+        woodMat
+      );
+      group.add(outer);
+
+      // Ornate corner blocks
+      for (const [sx, sy] of [
+        [1, 1],
+        [1, -1],
+        [-1, 1],
+        [-1, -1],
+      ]) {
+        const corner = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, 0.12, 0.12),
+          brassMat
+        );
+        corner.position.set(
+          sx * (IMG_W * 0.5 + 0.1),
+          sy * (IMG_H * 0.5 + 0.1),
+          0.02
+        );
+        group.add(corner);
+      }
+
+      const mid = new THREE.Mesh(
+        new THREE.BoxGeometry(IMG_W + 0.2, IMG_H + 0.2, 0.06),
+        brassMat
+      );
+      mid.position.z = 0.025;
+      group.add(mid);
+      const inner = new THREE.Mesh(
+        new THREE.BoxGeometry(IMG_W + 0.1, IMG_H + 0.1, 0.04),
+        frameMat
+      );
+      inner.position.z = 0.045;
+      group.add(inner);
+      const matBoard = new THREE.Mesh(
+        new THREE.BoxGeometry(IMG_W + 0.05, IMG_H + 0.05, 0.018),
+        new THREE.MeshStandardMaterial({ color: 0xf2ebe0, roughness: 0.95, metalness: 0 })
+      );
+      matBoard.position.z = 0.055;
+      group.add(matBoard);
+      const artMat = new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: 0.82,
+        metalness: 0,
+        emissive: 0xffffff,
+        emissiveMap: texture,
+        emissiveIntensity: 0.18,
+      });
+      const art = new THREE.Mesh(new THREE.PlaneGeometry(IMG_W, IMG_H), artMat);
+      art.position.z = 0.07;
+      group.add(art);
+      if (abbr) exhibitArtMats[abbr] = artMat;
+
+      // Glass pane (subtle)
+      const glass = new THREE.Mesh(
+        new THREE.PlaneGeometry(IMG_W + 0.02, IMG_H + 0.02),
+        new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.05,
+          metalness: 0.1,
+          transparent: true,
+          opacity: 0.08,
+        })
+      );
+      glass.position.z = 0.078;
+      group.add(glass);
+
+      // Picture-light can above frame (visual only)
+      const lightArm = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.018, 0.018, 0.22, 10),
+        brassMat
+      );
+      lightArm.rotation.z = Math.PI / 2;
+      lightArm.position.set(0, IMG_H * 0.5 + 0.22, 0.12);
+      group.add(lightArm);
+      const lightCan = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.07, 0.12, 14),
+        fixtureMetal
+      );
+      lightCan.rotation.x = Math.PI / 5;
+      lightCan.position.set(0, IMG_H * 0.5 + 0.18, 0.2);
+      group.add(lightCan);
+      const lightGlow = new THREE.Mesh(
+        new THREE.CircleGeometry(0.045, 14),
+        fixtureGlow
+      );
+      lightGlow.rotation.x = Math.PI / 2 + Math.PI / 5;
+      lightGlow.position.set(0, IMG_H * 0.5 + 0.14, 0.24);
+      group.add(lightGlow);
+
+      return group;
+    }
+
+    function addRecessedFixture(x, z) {
+      const group = new THREE.Group();
+      group.position.set(x, ROOM_H - 0.02, z);
+      const recess = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.34, 0.34, 0.06, 28),
+        new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.95, metalness: 0 })
+      );
+      recess.position.y = 0.02;
+      group.add(recess);
+      const housing = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.26, 0.3, 0.1, 28),
+        fixtureMetal
+      );
+      group.add(housing);
+      const trim = new THREE.Mesh(
+        new THREE.TorusGeometry(0.22, 0.022, 10, 28),
+        brassMat
+      );
+      trim.rotation.x = Math.PI / 2;
+      trim.position.y = -0.04;
+      group.add(trim);
+      const innerRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.15, 0.012, 8, 24),
+        brassMat
+      );
+      innerRing.rotation.x = Math.PI / 2;
+      innerRing.position.y = -0.048;
+      group.add(innerRing);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.14, 28), fixtureGlow);
+      lens.rotation.x = Math.PI / 2;
+      lens.position.y = -0.055;
+      group.add(lens);
+      scene.add(group);
+    }
+
+    // ——— Room shell ———
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(ROOM_R, WALL_SEG), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // Center medallion on floor
+    const medallion = new THREE.Mesh(
+      new THREE.RingGeometry(1.2, 2.4, 64),
+      brassMat
+    );
+    medallion.rotation.x = -Math.PI / 2;
+    medallion.position.y = 0.012;
+    scene.add(medallion);
+    const medRing2 = new THREE.Mesh(
+      new THREE.RingGeometry(2.45, 2.7, 64),
+      woodMat
+    );
+    medRing2.rotation.x = -Math.PI / 2;
+    medRing2.position.y = 0.013;
+    scene.add(medRing2);
+    const medInner = new THREE.Mesh(
+      new THREE.CircleGeometry(1.15, 48),
+      woodMat
+    );
+    medInner.rotation.x = -Math.PI / 2;
+    medInner.position.y = 0.014;
+    scene.add(medInner);
+    const medStar = new THREE.Mesh(
+      new THREE.CircleGeometry(0.45, 8),
+      brassMat
+    );
+    medStar.rotation.x = -Math.PI / 2;
+    medStar.position.y = 0.015;
+    scene.add(medStar);
+
+    // Concentric floor inlays
+    for (const [ri, ro, mat] of [
+      [4.2, 4.45, brassMat],
+      [8.5, 8.75, woodMat],
+      [13.2, 13.45, brassMat],
+      [17.5, 17.75, woodMat],
+    ]) {
+      if (ro >= ROOM_R - 0.5) continue;
+      const inlay = new THREE.Mesh(new THREE.RingGeometry(ri, ro, 96), mat);
+      inlay.rotation.x = -Math.PI / 2;
+      inlay.position.y = 0.011;
+      scene.add(inlay);
+    }
+
+    const ceiling = new THREE.Mesh(new THREE.CircleGeometry(ROOM_R, WALL_SEG), ceilMat);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = ROOM_H;
+    scene.add(ceiling);
+
+    // Coffered ceiling rings + radial beams
+    for (const r of [4, 7, 10, 13, 16]) {
+      if (r >= ROOM_R - 1) continue;
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(r, 0.07, 10, 80),
+        marbleMat
+      );
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = ROOM_H - 0.05;
+      scene.add(ring);
+    }
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const beam = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.08, ROOM_R - 1.5),
+        woodMat
+      );
+      beam.position.set(Math.sin(a) * ((ROOM_R - 1.5) / 2), ROOM_H - 0.06, Math.cos(a) * ((ROOM_R - 1.5) / 2));
+      beam.rotation.y = a;
+      scene.add(beam);
+    }
+
+    // Baseboard + chair rail + picture rail + crown moulding
+    const baseboard = new THREE.Mesh(
+      new THREE.TorusGeometry(ROOM_R - 0.06, 0.1, 10, WALL_SEG),
+      woodMat
+    );
+    baseboard.rotation.x = Math.PI / 2;
+    baseboard.position.y = 0.1;
+    scene.add(baseboard);
+    const baseCap = new THREE.Mesh(
+      new THREE.TorusGeometry(ROOM_R - 0.05, 0.035, 8, WALL_SEG),
+      brassMat
+    );
+    baseCap.rotation.x = Math.PI / 2;
+    baseCap.position.y = 0.22;
+    scene.add(baseCap);
+
+    const chairRail = new THREE.Mesh(
+      new THREE.TorusGeometry(ROOM_R - 0.04, 0.045, 8, WALL_SEG),
+      woodMat
+    );
+    chairRail.rotation.x = Math.PI / 2;
+    chairRail.position.y = 1.15;
+    scene.add(chairRail);
+
+    const pictureRail = new THREE.Mesh(
+      new THREE.TorusGeometry(ROOM_R - 0.04, 0.03, 8, WALL_SEG),
+      brassMat
+    );
+    pictureRail.rotation.x = Math.PI / 2;
+    pictureRail.position.y = ART_Y + IMG_H * 0.5 + 0.35;
+    scene.add(pictureRail);
+
+    const crown = new THREE.Mesh(
+      new THREE.TorusGeometry(ROOM_R - 0.05, 0.08, 10, WALL_SEG),
+      marbleMat
+    );
+    crown.rotation.x = Math.PI / 2;
+    crown.position.y = ROOM_H - 0.1;
+    scene.add(crown);
+    const crownLip = new THREE.Mesh(
+      new THREE.TorusGeometry(ROOM_R - 0.08, 0.035, 8, WALL_SEG),
+      brassMat
+    );
+    crownLip.rotation.x = Math.PI / 2;
+    crownLip.position.y = ROOM_H - 0.18;
+    scene.add(crownLip);
+    const crownDeep = new THREE.Mesh(
+      new THREE.TorusGeometry(ROOM_R - 0.12, 0.05, 8, WALL_SEG),
+      woodMat
+    );
+    crownDeep.rotation.x = Math.PI / 2;
+    crownDeep.position.y = ROOM_H - 0.28;
+    scene.add(crownDeep);
+
+    const centerLight = new THREE.PointLight(0xfff0d8, 130, 55, 1.0);
+    centerLight.position.set(0, ROOM_H - 0.4, 0);
+    scene.add(centerLight);
+
+    addRecessedFixture(0, 0);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      addRecessedFixture(Math.sin(a) * 7, Math.cos(a) * 7);
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2 + 0.15;
+      addRecessedFixture(Math.sin(a) * 14, Math.cos(a) * 14);
+    }
+
+    // Three.js cylinder: x=sin(θ)*r, z=cos(θ)*r
+    function posOnCircle(theta, radius, origin = null) {
+      const x = Math.sin(theta) * radius;
+      const z = Math.cos(theta) * radius;
+      if (!origin) return new THREE.Vector3(x, 0, z);
+      return new THREE.Vector3(origin.x + x, 0, origin.z + z);
+    }
+
+    function faceToward(obj, targetX, targetZ) {
+      obj.rotation.y =
+        Math.atan2(obj.position.x - targetX, obj.position.z - targetZ) + Math.PI;
+    }
+
+    function faceOutwardFrom(obj, originX, originZ) {
+      obj.rotation.y = Math.atan2(
+        obj.position.x - originX,
+        obj.position.z - originZ
+      );
+    }
+
+    const pillarOrigins = [];
+
+    function buildOuterWall() {
+      let schoolIndex = 0;
+      for (const group of OUTER_STATES) {
+        const n = group.schools.length;
+        const thetaStart = (schoolIndex / OUTER_COUNT) * Math.PI * 2;
+        const thetaLength = (n / OUTER_COUNT) * Math.PI * 2;
+        const tMid = thetaStart + thetaLength / 2;
+
+        const wallTex = makeStateWallTexture(group.color);
+        wallTex.repeat.set(Math.max(1.2, n * 0.9), ROOM_H / 3);
+        const wallSeg = new THREE.Mesh(
+          new THREE.CylinderGeometry(
+            ROOM_R,
+            ROOM_R,
+            ROOM_H,
+            Math.max(16, n * 8),
+            1,
+            true,
+            thetaStart,
+            thetaLength
+          ),
+          new THREE.MeshStandardMaterial({
+            map: wallTex,
+            roughness: 0.95,
+            metalness: 0,
+            side: THREE.BackSide,
+          })
+        );
+        wallSeg.position.y = ROOM_H / 2;
+        wallSeg.receiveShadow = true;
+        scene.add(wallSeg);
+
+        const label = new THREE.Mesh(
+          new THREE.PlaneGeometry(Math.min(3.4, 1.2 + n * 0.35), 0.55),
+          new THREE.MeshStandardMaterial({
+            map: makeStateLabelTexture(group.state, group.color),
+            roughness: 0.65,
+            metalness: 0,
+          })
+        );
+        label.position.copy(posOnCircle(tMid, ROOM_R - 0.08));
+        label.position.y = 4.15;
+        faceToward(label, 0, 0);
+        scene.add(label);
+
+        for (let i = 0; i < n; i++) {
+          const [abbr, name, city] = group.schools[i];
+          const theta = ((schoolIndex + i + 0.5) / OUTER_COUNT) * Math.PI * 2;
+
+          const ped = makePedestal(abbr, name, city, group.state);
+          ped.position.copy(posOnCircle(theta, ROOM_R - PED_WALL_OFFSET));
+          faceToward(ped, 0, 0);
+          ped.traverse((o) => {
+            if (o.isMesh) {
+              o.castShadow = true;
+              o.receiveShadow = true;
+            }
+          });
+          scene.add(ped);
+
+          const art = makeFramedImage(placeholderArtTex, abbr);
+          art.position.copy(posOnCircle(theta, ROOM_R - 0.07));
+          art.position.y = ART_Y;
+          faceToward(art, 0, 0);
+          scene.add(art);
+        }
+
+        schoolIndex += n;
+      }
+    }
+
+    function buildPillar(origin, stateGroups, pillarIndex) {
+      pillarOrigins.push({ x: origin.x, z: origin.z, r: PILLAR_PED_R + 0.55 });
+
+      const exhibits = [];
+      for (const g of stateGroups) {
+        for (const s of g.schools) {
+          exhibits.push({ state: g.state, color: g.color, school: s });
+        }
+      }
+      const count = exhibits.length;
+
+      // Detailed classical column: plinth → base torus → shaft → capital → abacus
+      const plinth = new THREE.Mesh(
+        new THREE.CylinderGeometry(PILLAR_R + 0.45, PILLAR_R + 0.5, 0.22, 48),
+        woodMat
+      );
+      plinth.position.set(origin.x, 0.11, origin.z);
+      plinth.castShadow = true;
+      scene.add(plinth);
+
+      const baseRing = new THREE.Mesh(
+        new THREE.TorusGeometry(PILLAR_R + 0.12, 0.08, 10, 48),
+        marbleMat
+      );
+      baseRing.rotation.x = Math.PI / 2;
+      baseRing.position.set(origin.x, 0.28, origin.z);
+      scene.add(baseRing);
+
+      const baseDisk = new THREE.Mesh(
+        new THREE.CylinderGeometry(PILLAR_R + 0.22, PILLAR_R + 0.18, 0.12, 48),
+        marbleMat
+      );
+      baseDisk.position.set(origin.x, 0.34, origin.z);
+      scene.add(baseDisk);
+
+      const shaftH = ROOM_H - 0.85;
+      const core = new THREE.Mesh(
+        new THREE.CylinderGeometry(PILLAR_R, PILLAR_R * 0.96, shaftH, 64),
+        marbleMat
+      );
+      core.position.set(origin.x, 0.4 + shaftH / 2, origin.z);
+      core.castShadow = true;
+      core.receiveShadow = true;
+      scene.add(core);
+
+      // Fluting (subtle vertical grooves)
+      for (let f = 0; f < 20; f++) {
+        const fa = (f / 20) * Math.PI * 2;
+        const flute = new THREE.Mesh(
+          new THREE.BoxGeometry(0.06, shaftH * 0.92, 0.04),
+          new THREE.MeshStandardMaterial({ color: 0xcfc4b2, roughness: 0.92, metalness: 0 })
+        );
+        flute.position.set(
+          origin.x + Math.sin(fa) * (PILLAR_R - 0.01),
+          0.4 + shaftH / 2,
+          origin.z + Math.cos(fa) * (PILLAR_R - 0.01)
+        );
+        flute.rotation.y = fa;
+        scene.add(flute);
+      }
+
+      // Colored state bands over shaft
+      let idx = 0;
+      for (const g of stateGroups) {
+        const n = g.schools.length;
+        const thetaStart = (idx / count) * Math.PI * 2;
+        const thetaLength = (n / count) * Math.PI * 2;
+        const tex = makeStateWallTexture(g.color);
+        tex.repeat.set(Math.max(1, n), ROOM_H / 3);
+        const band = new THREE.Mesh(
+          new THREE.CylinderGeometry(
+            PILLAR_R + 0.035,
+            PILLAR_R + 0.03,
+            shaftH * 0.88,
+            Math.max(16, n * 10),
+            1,
+            true,
+            thetaStart,
+            thetaLength
+          ),
+          new THREE.MeshStandardMaterial({
+            map: tex,
+            roughness: 0.94,
+            metalness: 0,
+          })
+        );
+        band.position.set(origin.x, 0.4 + shaftH / 2, origin.z);
+        scene.add(band);
+
+        const tMid = thetaStart + thetaLength / 2;
+        const label = new THREE.Mesh(
+          new THREE.PlaneGeometry(Math.min(2.2, 0.9 + n * 0.35), 0.42),
+          new THREE.MeshStandardMaterial({
+            map: makeStateLabelTexture(g.state, g.color),
+            roughness: 0.65,
+            metalness: 0,
+          })
+        );
+        label.position.copy(posOnCircle(tMid, PILLAR_R + 0.08, origin));
+        label.position.y = 4.05;
+        faceOutwardFrom(label, origin.x, origin.z);
+        scene.add(label);
+
+        idx += n;
+      }
+
+      // Capital
+      const necking = new THREE.Mesh(
+        new THREE.CylinderGeometry(PILLAR_R * 0.98, PILLAR_R + 0.08, 0.12, 48),
+        brassMat
+      );
+      necking.position.set(origin.x, ROOM_H - 0.55, origin.z);
+      scene.add(necking);
+
+      const echinus = new THREE.Mesh(
+        new THREE.CylinderGeometry(PILLAR_R + 0.2, PILLAR_R + 0.05, 0.16, 48),
+        marbleMat
+      );
+      echinus.position.set(origin.x, ROOM_H - 0.4, origin.z);
+      scene.add(echinus);
+
+      const abacus = new THREE.Mesh(
+        new THREE.CylinderGeometry(PILLAR_R + 0.35, PILLAR_R + 0.32, 0.14, 48),
+        woodMat
+      );
+      abacus.position.set(origin.x, ROOM_H - 0.22, origin.z);
+      scene.add(abacus);
+
+      const cap = new THREE.Mesh(
+        new THREE.CylinderGeometry(PILLAR_R + 0.28, PILLAR_R + 0.18, 0.12, 40),
+        brassMat
+      );
+      cap.position.set(origin.x, ROOM_H - 0.08, origin.z);
+      scene.add(cap);
+
+      for (let i = 0; i < count; i++) {
+        const { school, state } = exhibits[i];
+        const [abbr, name, city] = school;
+        const theta = ((i + 0.5) / count) * Math.PI * 2;
+
+        const ped = makePedestal(abbr, name, city, state);
+        ped.position.copy(posOnCircle(theta, PILLAR_PED_R, origin));
+        faceOutwardFrom(ped, origin.x, origin.z);
+        ped.traverse((o) => {
+          if (o.isMesh) {
+            o.castShadow = true;
+            o.receiveShadow = true;
+          }
+        });
+        scene.add(ped);
+
+        const art = makeFramedImage(placeholderArtTex, abbr);
+        art.position.copy(posOnCircle(theta, PILLAR_R + 0.07, origin));
+        art.position.y = ART_Y;
+        faceOutwardFrom(art, origin.x, origin.z);
+        scene.add(art);
+      }
+    }
+
+    function makePlaceholderArtTexture() {
+      const c = document.createElement("canvas");
+      c.width = 512;
+      c.height = 320;
+      const ctx = c.getContext("2d");
+      const g = ctx.createLinearGradient(0, 0, 512, 320);
+      g.addColorStop(0, "#2c261f");
+      g.addColorStop(1, "#1a1612");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 512, 320);
+      ctx.strokeStyle = "rgba(196,165,116,0.25)";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(18, 18, 476, 284);
+      ctx.fillStyle = "rgba(242,232,213,0.35)";
+      ctx.font = "500 28px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Loading logo…", 256, 160);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 4;
+      return tex;
+    }
+
+    const placeholderArtTex = makePlaceholderArtTexture();
+
+    function buildGallery() {
+      buildOuterWall();
+
+      for (let p = 0; p < PILLAR_GROUPS.length; p++) {
+        const a = (p / PILLAR_GROUPS.length) * Math.PI * 2;
+        const origin = {
+          x: Math.sin(a) * PILLAR_RING,
+          z: Math.cos(a) * PILLAR_RING,
+        };
+        buildPillar(origin, PILLAR_GROUPS[p], p);
+      }
+    }
+
+    buildGallery();
+
+    // ——— Controls + map ———
+    const controls = new PointerLockControls(camera, document.body);
+    const intro = document.getElementById("intro");
+    const introNext = document.getElementById("introNext");
+    const introDots = document.getElementById("introDots");
+    const slides = [...document.querySelectorAll("#slideStage .slide")];
+    const hint = document.getElementById("hint");
+    const hud = document.getElementById("hud");
+    const crosshair = document.getElementById("crosshair");
+    const lookPrompt = document.getElementById("lookPrompt");
+    const collegeOverlay = document.getElementById("collegeOverlay");
+    const collegeStage = document.getElementById("collegeStage");
+    const collegeDots = document.getElementById("collegeDots");
+    const collegeNext = document.getElementById("collegeNext");
+    const collegeBack = document.getElementById("collegeBack");
+    const galleryLoading = document.getElementById("galleryLoading");
+    const loadStatus = document.getElementById("loadStatus");
+    const loadBarFill = document.getElementById("loadBarFill");
+    const mapOverlay = document.getElementById("mapOverlay");
+    const mapCanvas = document.getElementById("mapCanvas");
+    const mapCtx = mapCanvas.getContext("2d");
+    let mapOpen = false;
+    let mapZoom = 1;
+    let mapPanX = 0;
+    let mapPanY = 0;
+    let mapDragging = false;
+    let mapDragLastX = 0;
+    let mapDragLastY = 0;
+    let introDone = false;
+    let slideIndex = 0;
+    let slideReady = false;
+    let nextTimer = null;
+    let collegeOpen = false;
+    let collegeSlideIndex = 0;
+    let collegeSlideReady = false;
+    let collegeNextTimer = null;
+    let collegeSlides = [];
+    let collegeCache = {};
+    let galleryPhotosPromise = null;
+    let galleryPhotosReady = false;
+    let galleryLoadingOpen = false;
+
+    const raycaster = new THREE.Raycaster();
+    const centerNDC = new THREE.Vector2(0, 0);
+    const COLLEGE_SLIDE_MS = 1500;
+
+    // Slide animation ends ~0.45s delay + 0.9s body ≈ 1.35s; wait a beat then show Next
+    const SLIDE_READY_MS = 1600;
+
+    slides.forEach((_, i) => {
+      const dot = document.createElement("span");
+      if (i === 0) dot.classList.add("on");
+      introDots.appendChild(dot);
+    });
+    const dots = [...introDots.querySelectorAll("span")];
+
+    function showSlide(index) {
+      slideReady = false;
+      introNext.classList.remove("show");
+      if (nextTimer) clearTimeout(nextTimer);
+
+      slides.forEach((s, i) => {
+        s.classList.remove("active", "leaving");
+        if (i === index) s.classList.add("active");
+      });
+      dots.forEach((d, i) => d.classList.toggle("on", i === index));
+
+      const last = index === slides.length - 1;
+      introNext.textContent = last ? "Enter Gallery" : "Next";
+
+      nextTimer = setTimeout(() => {
+        slideReady = true;
+        introNext.classList.add("show");
+      }, SLIDE_READY_MS);
+    }
+
+    function advanceIntro() {
+      if (!slideReady) return;
+      if (slideIndex >= slides.length - 1) {
+        finishIntro();
+        return;
+      }
+      const current = slides[slideIndex];
+      current.classList.remove("active");
+      current.classList.add("leaving");
+      slideIndex += 1;
+      introNext.classList.remove("show");
+      slideReady = false;
+      setTimeout(() => {
+        current.classList.remove("leaving");
+        showSlide(slideIndex);
+      }, 380);
+    }
+
+    async function finishIntro() {
+      if (nextTimer) clearTimeout(nextTimer);
+      intro.classList.add("hidden");
+      hint.classList.remove("visible");
+      introDone = true;
+      // Pointer lock only works in this click gesture — request it before awaiting photos
+      controls.lock();
+
+      if (!galleryPhotosReady) {
+        galleryLoadingOpen = true;
+        galleryLoading.classList.add("open");
+        loadStatus.textContent = "Loading school logos…";
+        try {
+          if (!galleryPhotosPromise) galleryPhotosPromise = loadAllExhibitPhotos();
+          await galleryPhotosPromise;
+        } catch (_) {}
+        galleryLoading.classList.remove("open");
+        galleryLoadingOpen = false;
+      }
+
+      if (!controls.isLocked) {
+        hint.classList.add("visible");
+        hud.classList.remove("show");
+        crosshair.classList.remove("show");
+      }
+    }
+
+    showSlide(0);
+    introNext.addEventListener("click", (e) => {
+      e.stopPropagation();
+      advanceIntro();
+    });
+
+    async function fetchCollegeMedia(meta, name) {
+      const key = meta.wiki || name;
+      if (collegeCache[key]?.complete) return collegeCache[key];
+
+      const out = collegeCache[key] || { extract: "", image: "", images: [], complete: false };
+      const title = meta.wiki.replace(/_/g, " ");
+      // Dedupe by real file identity (thumb/original URLs often differ for the same photo)
+      const byFile = new Map();
+      for (const existing of out.images || []) {
+        // seed with any hero already loaded
+        if (existing) byFile.set(existing.toLowerCase(), existing);
+      }
+
+      function absUrl(u) {
+        if (!u) return "";
+        if (u.startsWith("//")) return "https:" + u;
+        if (u.startsWith("/")) return "https://en.wikipedia.org" + u;
+        return u;
+      }
+
+      function fileKey(url, label = "") {
+        const fromLabel = String(label || "")
+          .replace(/^File:/i, "")
+          .trim()
+          .toLowerCase();
+        if (fromLabel && /\.(jpe?g|png|webp)$/i.test(fromLabel)) {
+          return fromLabel.replace(/ /g, "_");
+        }
+        try {
+          const path = new URL(absUrl(url)).pathname;
+          const parts = path.split("/").filter(Boolean);
+          let file = decodeURIComponent(parts[parts.length - 1] || "");
+          // /thumb/.../Name.jpg/1200px-Name.jpg → Name.jpg
+          if (/^\d+px-/i.test(file) && parts.length >= 2) {
+            file = decodeURIComponent(parts[parts.length - 2] || file);
+          }
+          file = file.replace(/^\d+px-/i, "");
+          return file.toLowerCase();
+        } catch (_) {
+          return String(url).toLowerCase();
+        }
+      }
+
+      function scoreUrl(url) {
+        // Prefer full originals over resized thumbs
+        if (/\/thumb\//i.test(url)) return 1;
+        return 2;
+      }
+
+      function pushImage(url, label = "") {
+        const src = absUrl(url);
+        if (!src) return;
+        const probe = `${src} ${label}`.toLowerCase();
+        if (!/upload\.wikimedia\.org|\.(jpe?g|png|webp)(\?|$)/i.test(src)) return;
+        if (
+          /logo|seal|coat|icon|wordmark|signature|\.svg|flag_of|map_of|qr_code|wikidata|commons-logo|edit-clear|ambox|padlock|symbol|crest|banner_of|lock-green|question_book|commons-logo/i.test(
+            probe
+          )
+        ) {
+          return;
+        }
+        const fk = fileKey(src, label);
+        if (!fk) return;
+        const prev = byFile.get(fk);
+        if (!prev || scoreUrl(src) > scoreUrl(prev)) byFile.set(fk, src);
+      }
+
+      // Re-key any seeded URLs properly
+      const seeded = [...byFile.values()];
+      byFile.clear();
+      for (const s of seeded) pushImage(s);
+
+      try {
+        const sumRes = await fetch(
+          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(meta.wiki)}`,
+          { headers: { Accept: "application/json" } }
+        );
+        if (sumRes.ok) {
+          const sum = await sumRes.json();
+          if (sum.extract) out.extract = sum.extract;
+          pushImage(sum.originalimage?.source, sum.title);
+          pushImage(sum.thumbnail?.source, sum.title);
+        }
+      } catch (_) {}
+
+      try {
+        const params = new URLSearchParams({
+          action: "query",
+          format: "json",
+          origin: "*",
+          redirects: "1",
+          titles: title,
+          prop: "pageimages|extracts",
+          piprop: "thumbnail|original",
+          pithumbsize: "1200",
+          exintro: "1",
+          explaintext: "1",
+        });
+        const res = await fetch(`https://en.wikipedia.org/w/api.php?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          const page = Object.values(data.query?.pages || {})[0];
+          if (page && !page.missing) {
+            if (!out.extract && page.extract) out.extract = page.extract;
+            pushImage(page.original?.source, page.title);
+            pushImage(page.thumbnail?.source, page.title);
+          }
+        }
+      } catch (_) {}
+
+      try {
+        const params = new URLSearchParams({
+          action: "query",
+          format: "json",
+          origin: "*",
+          redirects: "1",
+          titles: title,
+          generator: "images",
+          gimlimit: "30",
+          prop: "imageinfo",
+          iiprop: "url|mime|size",
+          iiurlwidth: "1200",
+        });
+        const res = await fetch(`https://en.wikipedia.org/w/api.php?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          const pages = Object.values(data.query?.pages || {});
+          pages.sort((a, b) => (b.imageinfo?.[0]?.size || 0) - (a.imageinfo?.[0]?.size || 0));
+          for (const page of pages) {
+            const info = page.imageinfo?.[0];
+            if (!info) continue;
+            if (info.mime && !/^image\/(jpeg|png|webp)/i.test(info.mime)) continue;
+            // Prefer original file URL for stable identity; thumb only as fallback
+            pushImage(info.url, page.title);
+            pushImage(info.thumburl, page.title);
+          }
+        }
+      } catch (_) {}
+
+      out.images = [...byFile.values()].slice(0, 8);
+      out.image = out.images[0] || "";
+      out.complete = true;
+      collegeCache[key] = out;
+      return out;
+    }
+
+    async function fetchHeroImage(meta, name) {
+      const key = meta.wiki || name;
+      if (collegeCache[key]?.image) return collegeCache[key];
+
+      const out = collegeCache[key] || { extract: "", image: "", images: [], complete: false };
+
+      function absUrl(u) {
+        if (!u) return "";
+        if (u.startsWith("//")) return "https:" + u;
+        if (u.startsWith("/")) return "https://en.wikipedia.org" + u;
+        return u;
+      }
+
+      try {
+        const sumRes = await fetch(
+          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(meta.wiki)}`,
+          { headers: { Accept: "application/json" } }
+        );
+        if (sumRes.ok) {
+          const sum = await sumRes.json();
+          if (sum.extract) out.extract = sum.extract;
+          const src = absUrl(sum.originalimage?.source || sum.thumbnail?.source || "");
+          if (src) {
+            out.image = src;
+            if (!out.images.includes(src)) out.images.unshift(src);
+          }
+        }
+      } catch (_) {}
+
+      if (!out.image) {
+        try {
+          const params = new URLSearchParams({
+            action: "query",
+            format: "json",
+            origin: "*",
+            redirects: "1",
+            titles: meta.wiki.replace(/_/g, " "),
+            prop: "pageimages",
+            piprop: "thumbnail|original",
+            pithumbsize: "1000",
+          });
+          const res = await fetch(`https://en.wikipedia.org/w/api.php?${params}`);
+          if (res.ok) {
+            const data = await res.json();
+            const page = Object.values(data.query?.pages || {})[0];
+            const src = absUrl(page?.original?.source || page?.thumbnail?.source || "");
+            if (src) {
+              out.image = src;
+              if (!out.images.includes(src)) out.images.unshift(src);
+            }
+          }
+        } catch (_) {}
+      }
+
+      collegeCache[key] = out;
+      return out;
+    }
+
+    function loadHtmlImage(url) {
+      return new Promise((resolve) => {
+        if (!url) return resolve(null);
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.referrerPolicy = "no-referrer";
+        const timer = setTimeout(() => {
+          img.src = "";
+          resolve(null);
+        }, 8000);
+        img.onload = () => {
+          clearTimeout(timer);
+          if (img.naturalWidth < 16 || img.naturalHeight < 16) resolve(null);
+          else resolve(img);
+        };
+        img.onerror = () => {
+          clearTimeout(timer);
+          resolve(null);
+        };
+        img.src = url;
+      });
+    }
+
+    function siteHost(website) {
+      try {
+        return new URL(website).hostname.replace(/^www\./i, "");
+      } catch (_) {
+        return "";
+      }
+    }
+
+    function logoUrlCandidates(meta, wikiThumb) {
+      const urls = [];
+      const host = siteHost(meta.website);
+      // Prefer Wikimedia page image when it looks like a logo/crest
+      if (wikiThumb) urls.push(wikiThumb);
+      if (host) {
+        urls.push(
+          `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=256`
+        );
+        urls.push(`https://logo.clearbit.com/${host}`);
+        urls.push(
+          `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`
+        );
+      }
+      return [...new Set(urls.filter(Boolean))];
+    }
+
+    function makeFramedLogoTexture(sourceImg, abbr, name) {
+      const c = document.createElement("canvas");
+      c.width = 1024;
+      c.height = 614;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#f2ebe0";
+      ctx.fillRect(0, 0, c.width, c.height);
+
+      if (sourceImg) {
+        const pad = 90;
+        const maxW = c.width - pad * 2;
+        const maxH = c.height - pad * 2;
+        const scale = Math.min(maxW / sourceImg.naturalWidth, maxH / sourceImg.naturalHeight);
+        const w = sourceImg.naturalWidth * scale;
+        const h = sourceImg.naturalHeight * scale;
+        ctx.drawImage(sourceImg, (c.width - w) / 2, (c.height - h) / 2, w, h);
+      } else {
+        ctx.fillStyle = "#2a241c";
+        ctx.font = "700 96px Georgia, serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(abbr, c.width / 2, c.height / 2 - 36);
+        ctx.font = "600 34px Georgia, serif";
+        ctx.fillStyle = "#5a4e40";
+        const label = name.length > 42 ? name.slice(0, 40) + "…" : name;
+        ctx.fillText(label, c.width / 2, c.height / 2 + 50);
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    async function fetchWikiLogoUrl(meta) {
+      function absUrl(u) {
+        if (!u) return "";
+        if (u.startsWith("//")) return "https:" + u;
+        if (u.startsWith("/")) return "https://en.wikipedia.org" + u;
+        return u;
+      }
+      try {
+        const sumRes = await fetch(
+          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(meta.wiki)}`,
+          { headers: { Accept: "application/json" } }
+        );
+        if (sumRes.ok) {
+          const sum = await sumRes.json();
+          const src = absUrl(sum.originalimage?.source || sum.thumbnail?.source || "");
+          if (src) return src;
+        }
+      } catch (_) {}
+      try {
+        const params = new URLSearchParams({
+          action: "query",
+          format: "json",
+          origin: "*",
+          redirects: "1",
+          titles: meta.wiki.replace(/_/g, " "),
+          prop: "pageimages",
+          piprop: "thumbnail|original",
+          pithumbsize: "800",
+        });
+        const res = await fetch(`https://en.wikipedia.org/w/api.php?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          const page = Object.values(data.query?.pages || {})[0];
+          return absUrl(page?.original?.source || page?.thumbnail?.source || "");
+        }
+      } catch (_) {}
+      return "";
+    }
+
+    async function loadSchoolLogoTexture(abbr, name, meta) {
+      const wikiThumb = await fetchWikiLogoUrl(meta);
+      const candidates = logoUrlCandidates(meta, wikiThumb);
+      for (const url of candidates) {
+        const img = await loadHtmlImage(url);
+        if (img) return makeFramedLogoTexture(img, abbr, name);
+      }
+      // Always succeed — monogram fallback so no frame stays empty
+      return makeFramedLogoTexture(null, abbr, name);
+    }
+
+    async function loadAllExhibitPhotos() {
+      if (galleryPhotosReady) return;
+      const jobs = [];
+      for (const g of HBCU_BY_STATE) {
+        for (const [abbr, name] of g.schools) {
+          const meta = COLLEGE_META[abbr];
+          if (meta && exhibitArtMats[abbr]) jobs.push({ abbr, name, meta });
+        }
+      }
+
+      let done = 0;
+      const total = jobs.length;
+      const updateUi = () => {
+        const pct = total ? Math.round((done / total) * 100) : 100;
+        loadBarFill.style.width = `${pct}%`;
+        loadStatus.textContent = `Loading logos ${done} / ${total}`;
+      };
+      updateUi();
+
+      const queue = [...jobs];
+      const workers = Array.from({ length: 8 }, async () => {
+        while (queue.length) {
+          const job = queue.shift();
+          try {
+            const tex = await loadSchoolLogoTexture(job.abbr, job.name, job.meta);
+            const mat = exhibitArtMats[job.abbr];
+            if (tex && mat) {
+              const old = mat.map;
+              mat.map = tex;
+              mat.emissiveMap = tex;
+              mat.emissiveIntensity = 0.12;
+              mat.needsUpdate = true;
+              if (old && old !== placeholderArtTex) old.dispose();
+            }
+          } catch (_) {
+            try {
+              const tex = makeFramedLogoTexture(null, job.abbr, job.name);
+              const mat = exhibitArtMats[job.abbr];
+              if (mat) {
+                mat.map = tex;
+                mat.emissiveMap = tex;
+                mat.needsUpdate = true;
+              }
+            } catch (__) {}
+          }
+          done += 1;
+          updateUi();
+        }
+      });
+      await Promise.all(workers);
+      galleryPhotosReady = true;
+      loadStatus.textContent = "Gallery ready";
+      loadBarFill.style.width = "100%";
+    }
+
+    // Start fetching school logos during the intro slideshow
+    galleryPhotosPromise = loadAllExhibitPhotos();
+
+    function el(tag, cls, html) {
+      const n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (html != null) n.innerHTML = html;
+      return n;
+    }
+
+    function makeCollegeImg(url, alt) {
+      if (!url) return null;
+      const img = el("img", "cImg");
+      img.alt = alt || "";
+      img.referrerPolicy = "no-referrer";
+      img.decoding = "async";
+      img.addEventListener("error", () => img.remove());
+      img.src = url;
+      return img;
+    }
+
+    function buildCollegeSlides(info, media) {
+      // Each distinct photo once; later slides skip images if the pool runs out
+      const seenFiles = new Set();
+      const pool = [];
+      for (const url of media.images || []) {
+        if (!url) continue;
+        let fk = url.toLowerCase();
+        try {
+          const parts = new URL(url).pathname.split("/").filter(Boolean);
+          let file = decodeURIComponent(parts[parts.length - 1] || "");
+          if (/^\d+px-/i.test(file) && parts.length >= 2) {
+            file = decodeURIComponent(parts[parts.length - 2] || file);
+          }
+          fk = file.replace(/^\d+px-/i, "").toLowerCase();
+        } catch (_) {}
+        if (seenFiles.has(fk)) continue;
+        seenFiles.add(fk);
+        pool.push(url);
+      }
+      const takeImg = (alt) => {
+        const url = pool.shift();
+        return url ? makeCollegeImg(url, alt) : null;
+      };
+
+      const slidesData = [];
+      const hero = el("article", "cSlide");
+      hero.appendChild(el("p", "cKicker", `${info.city} · ${info.state}`));
+      hero.appendChild(el("h2", "cTitle", info.name));
+      const heroImg = takeImg(info.name);
+      if (heroImg) hero.appendChild(heroImg);
+      hero.appendChild(
+        el(
+          "p",
+          "cBody",
+          info.meta.tagline
+            ? `<em>${info.meta.tagline}</em><br/>Founded ${info.meta.founded}`
+            : `Founded ${info.meta.founded}`
+        )
+      );
+      slidesData.push(hero);
+
+      const about = el("article", "cSlide");
+      about.appendChild(el("p", "cKicker", "About"));
+      about.appendChild(el("h2", "cTitle", info.abbr));
+      const aboutImg = takeImg(`${info.name} campus`);
+      if (aboutImg) about.appendChild(aboutImg);
+      about.appendChild(
+        el("p", "cBody", media.extract || info.meta.about)
+      );
+      slidesData.push(about);
+
+      const highs = el("article", "cSlide");
+      highs.appendChild(el("p", "cKicker", "Highlights"));
+      highs.appendChild(el("h2", "cTitle", "What stands out"));
+      const highImg = takeImg(info.name);
+      if (highImg) highs.appendChild(highImg);
+      const ul = el("ul", "cList");
+      for (const h of info.meta.highlights) {
+        const li = document.createElement("li");
+        li.textContent = h;
+        ul.appendChild(li);
+      }
+      highs.appendChild(ul);
+      slidesData.push(highs);
+
+      if (info.meta.about && media.extract) {
+        const more = el("article", "cSlide");
+        more.appendChild(el("p", "cKicker", "Campus & mission"));
+        more.appendChild(el("h2", "cTitle", "Learn more"));
+        const moreImg = takeImg(info.name);
+        if (moreImg) more.appendChild(moreImg);
+        more.appendChild(el("p", "cBody", info.meta.about));
+        slidesData.push(more);
+      }
+
+      const web = el("article", "cSlide");
+      web.appendChild(el("p", "cKicker", "Official site"));
+      web.appendChild(el("h2", "cTitle", "Visit the college"));
+      web.appendChild(
+        el(
+          "p",
+          "cBody",
+          `Explore programs, admissions, and campus life on the official ${info.name} website.`
+        )
+      );
+      const link = el("a", "cLink", info.meta.website.replace(/^https?:\/\//, "").replace(/\/$/, ""));
+      link.href = info.meta.website;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      web.appendChild(link);
+      slidesData.push(web);
+
+      return slidesData;
+    }
+
+    function showCollegeSlide(index) {
+      collegeSlideReady = false;
+      collegeNext.classList.remove("show");
+      if (collegeNextTimer) clearTimeout(collegeNextTimer);
+
+      collegeSlides.forEach((s, i) => {
+        s.classList.remove("active", "leaving");
+        if (i === index) s.classList.add("active");
+      });
+      [...collegeDots.querySelectorAll("span")].forEach((d, i) =>
+        d.classList.toggle("on", i === index)
+      );
+
+      const last = index === collegeSlides.length - 1;
+      collegeNext.textContent = last ? "Close" : "Next";
+
+      collegeNextTimer = setTimeout(() => {
+        collegeSlideReady = true;
+        collegeNext.classList.add("show");
+      }, COLLEGE_SLIDE_MS);
+    }
+
+    function advanceCollege() {
+      if (!collegeSlideReady) return;
+      if (collegeSlideIndex >= collegeSlides.length - 1) {
+        closeCollege();
+        return;
+      }
+      const current = collegeSlides[collegeSlideIndex];
+      current.classList.remove("active");
+      current.classList.add("leaving");
+      collegeSlideIndex += 1;
+      collegeNext.classList.remove("show");
+      collegeSlideReady = false;
+      setTimeout(() => {
+        current.classList.remove("leaving");
+        showCollegeSlide(collegeSlideIndex);
+      }, 350);
+    }
+
+    async function openCollege(hit) {
+      const abbr = hit.userData.abbr;
+      const meta = COLLEGE_META[abbr];
+      if (!meta) return;
+
+      collegeOpen = true;
+      if (controls.isLocked) controls.unlock();
+      hint.classList.remove("visible");
+      crosshair.classList.remove("show", "hot");
+      lookPrompt.classList.remove("show");
+      hud.classList.remove("show");
+
+      collegeStage.innerHTML = "";
+      collegeDots.innerHTML = "";
+      collegeNext.classList.remove("show");
+      collegeOverlay.classList.add("open");
+      collegeStage.innerHTML = `<p class="cBody" style="opacity:1">Loading ${hit.userData.name}…</p>`;
+
+      const media = await fetchCollegeMedia(meta, hit.userData.name);
+      if (!collegeOpen) return;
+
+      const info = {
+        abbr,
+        name: hit.userData.name,
+        city: hit.userData.city,
+        state: hit.userData.state,
+        meta,
+      };
+      collegeSlides = buildCollegeSlides(info, media);
+      collegeStage.innerHTML = "";
+      collegeSlides.forEach((s) => collegeStage.appendChild(s));
+      collegeSlides.forEach((_, i) => {
+        const d = document.createElement("span");
+        if (i === 0) d.classList.add("on");
+        collegeDots.appendChild(d);
+      });
+      collegeSlideIndex = 0;
+      showCollegeSlide(0);
+    }
+
+    function closeCollege() {
+      collegeOpen = false;
+      collegeOverlay.classList.remove("open");
+      collegeStage.innerHTML = "";
+      collegeDots.innerHTML = "";
+      collegeNext.classList.remove("show");
+      if (collegeNextTimer) clearTimeout(collegeNextTimer);
+      if (hoveredTablet?.userData.outline) hoveredTablet.userData.outline.visible = false;
+      hoveredTablet = null;
+      hint.classList.remove("visible");
+      // Clicking Back / finishing is a user gesture — re-enter the gallery directly
+      controls.lock();
+      setTimeout(() => {
+        if (!controls.isLocked && !collegeOpen && !mapOpen && introDone) {
+          hint.classList.add("visible");
+        }
+      }, 300);
+    }
+
+    collegeNext.addEventListener("click", (e) => {
+      e.stopPropagation();
+      advanceCollege();
+    });
+    collegeBack.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeCollege();
+    });
+
+    hint.addEventListener("click", () => {
+      if (!introDone || mapOpen || collegeOpen) return;
+      controls.lock();
+    });
+    controls.addEventListener("lock", () => {
+      hint.classList.remove("visible");
+      hud.classList.add("show");
+      crosshair.classList.add("show");
+    });
+    controls.addEventListener("unlock", () => {
+      crosshair.classList.remove("show", "hot");
+      lookPrompt.classList.remove("show");
+      if (!introDone || mapOpen || collegeOpen || galleryLoadingOpen) return;
+      hint.classList.add("visible");
+      hud.classList.remove("show");
+    });
+
+    addEventListener("click", () => {
+      if (!controls.isLocked || mapOpen || collegeOpen || galleryLoadingOpen || !hoveredTablet) return;
+      openCollege(hoveredTablet);
+    });
+
+    const keys = { w: false, a: false, s: false, d: false };
+    addEventListener("keydown", (e) => {
+      if (!introDone) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          advanceIntro();
+        }
+        return;
+      }
+      if (collegeOpen) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          closeCollege();
+          return;
+        }
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          advanceCollege();
+        }
+        return;
+      }
+      const k = e.key.toLowerCase();
+      if (k in keys) keys[k] = true;
+      if (k === "m") {
+        e.preventDefault();
+        toggleMap();
+      }
+    });
+    addEventListener("keyup", (e) => {
+      const k = e.key.toLowerCase();
+      if (k in keys) keys[k] = false;
+    });
+
+    function toggleMap() {
+      if (!introDone || collegeOpen) return;
+      mapOpen = !mapOpen;
+      mapOverlay.classList.toggle("open", mapOpen);
+      if (mapOpen) {
+        if (controls.isLocked) controls.unlock();
+        hint.classList.remove("visible");
+        mapZoom = 1;
+        mapPanX = 0;
+        mapPanY = 0;
+        drawMap();
+      } else {
+        hint.classList.remove("visible");
+        controls.lock();
+        setTimeout(() => {
+          if (!controls.isLocked && !mapOpen && !collegeOpen && introDone) {
+            hint.classList.add("visible");
+            hud.classList.remove("show");
+          }
+        }, 300);
+      }
+    }
+
+    mapOverlay.addEventListener("click", (e) => {
+      if (e.target === mapOverlay) toggleMap();
+    });
+
+    function updateTabletLook() {
+      if (!controls.isLocked || mapOpen || collegeOpen || galleryLoadingOpen) {
+        if (hoveredTablet?.userData.outline) hoveredTablet.userData.outline.visible = false;
+        hoveredTablet = null;
+        crosshair.classList.remove("hot");
+        lookPrompt.classList.remove("show");
+        return;
+      }
+      raycaster.setFromCamera(centerNDC, camera);
+      const hits = raycaster.intersectObjects(tabletHits, false);
+      const hit = hits.find((h) => h.distance < 4.2)?.object || null;
+      if (hit !== hoveredTablet) {
+        if (hoveredTablet?.userData.outline) hoveredTablet.userData.outline.visible = false;
+        hoveredTablet = hit;
+        if (hoveredTablet?.userData.outline) hoveredTablet.userData.outline.visible = true;
+      }
+      const hot = !!hoveredTablet;
+      crosshair.classList.toggle("hot", hot);
+      lookPrompt.classList.toggle("show", hot);
+    }
+
+    function canvasLocal(e) {
+      const rect = mapCanvas.getBoundingClientRect();
+      const sx = mapCanvas.width / rect.width;
+      const sy = mapCanvas.height / rect.height;
+      return {
+        x: (e.clientX - rect.left) * sx,
+        y: (e.clientY - rect.top) * sy,
+      };
+    }
+
+    mapCanvas.addEventListener(
+      "wheel",
+      (e) => {
+        if (!mapOpen) return;
+        e.preventDefault();
+        const { x, y } = canvasLocal(e);
+        const W = mapCanvas.width;
+        const H = mapCanvas.height;
+        const baseScale = (W * 0.4) / ROOM_R;
+        const oldScale = baseScale * mapZoom;
+        const worldX = (x - W / 2 - mapPanX) / oldScale;
+        const worldZ = (y - H / 2 - mapPanY) / oldScale;
+
+        const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+        mapZoom = Math.min(4.5, Math.max(0.55, mapZoom * factor));
+        const newScale = baseScale * mapZoom;
+        mapPanX = x - W / 2 - worldX * newScale;
+        mapPanY = y - H / 2 - worldZ * newScale;
+        drawMap();
+      },
+      { passive: false }
+    );
+
+    mapCanvas.addEventListener("mousedown", (e) => {
+      if (!mapOpen || e.button !== 0) return;
+      mapDragging = true;
+      mapDragLastX = e.clientX;
+      mapDragLastY = e.clientY;
+      mapCanvas.classList.add("dragging");
+    });
+    addEventListener("mousemove", (e) => {
+      if (!mapDragging) return;
+      const rect = mapCanvas.getBoundingClientRect();
+      const sx = mapCanvas.width / rect.width;
+      const sy = mapCanvas.height / rect.height;
+      mapPanX += (e.clientX - mapDragLastX) * sx;
+      mapPanY += (e.clientY - mapDragLastY) * sy;
+      mapDragLastX = e.clientX;
+      mapDragLastY = e.clientY;
+      drawMap();
+    });
+    addEventListener("mouseup", () => {
+      mapDragging = false;
+      mapCanvas.classList.remove("dragging");
+    });
+
+    function worldToMap(x, z, cx, cy, scale) {
+      return [cx + mapPanX + x * scale, cy + mapPanY + z * scale];
+    }
+
+    function measureBadge(ctx, text, opts = {}) {
+      const {
+        fontSize = 13,
+        accent = null,
+        padX = 7,
+        padY = 4,
+        weight = "700",
+      } = opts;
+      ctx.font = `${weight} ${fontSize}px Georgia, serif`;
+      const tw = ctx.measureText(text).width;
+      return {
+        w: tw + padX * 2 + (accent ? 6 : 0),
+        h: fontSize + padY * 2,
+        fontSize,
+        padX,
+        padY,
+        weight,
+      };
+    }
+
+    function drawBadgeAt(ctx, label) {
+      const {
+        text,
+        x,
+        y,
+        w,
+        h,
+        fontSize,
+        weight = "700",
+        textColor = "#1a1510",
+        bg = "rgba(255, 248, 235, 0.94)",
+        border = "#5a4a38",
+        accent = null,
+      } = label;
+      const rx = x - w / 2;
+      const ry = y - h / 2;
+
+      // Leader line if nudged away from anchor
+      const dist = Math.hypot(x - label.ax, y - label.ay);
+      if (dist > 4) {
+        ctx.beginPath();
+        ctx.moveTo(label.ax, label.ay);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = "rgba(40, 30, 20, 0.45)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(label.ax, label.ay, 2.2, 0, Math.PI * 2);
+        ctx.fillStyle = border;
+        ctx.fill();
+      }
+
+      ctx.fillStyle = bg;
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.rect(rx, ry, w, h);
+      ctx.fill();
+      ctx.stroke();
+
+      if (accent) {
+        ctx.fillStyle = accent;
+        ctx.fillRect(rx, ry, 5, h);
+      }
+
+      ctx.font = `${weight} ${fontSize}px Georgia, serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = textColor;
+      ctx.fillText(text, x + (accent ? 2 : 0), y + 0.5);
+    }
+
+    function resolveLabelOverlaps(labels, iterations = 55) {
+      const pad = 3;
+      for (let iter = 0; iter < iterations; iter++) {
+        for (let i = 0; i < labels.length; i++) {
+          for (let j = i + 1; j < labels.length; j++) {
+            const a = labels[i];
+            const b = labels[j];
+            const ax0 = a.x - a.w / 2 - pad;
+            const ay0 = a.y - a.h / 2 - pad;
+            const ax1 = a.x + a.w / 2 + pad;
+            const ay1 = a.y + a.h / 2 + pad;
+            const bx0 = b.x - b.w / 2 - pad;
+            const by0 = b.y - b.h / 2 - pad;
+            const bx1 = b.x + b.w / 2 + pad;
+            const by1 = b.y + b.h / 2 + pad;
+            if (ax0 >= bx1 || bx0 >= ax1 || ay0 >= by1 || by0 >= ay1) continue;
+
+            const overlapX = Math.min(ax1, bx1) - Math.max(ax0, bx0);
+            const overlapY = Math.min(ay1, by1) - Math.max(ay0, by0);
+            let dx = b.x - a.x;
+            let dy = b.y - a.y;
+            if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) {
+              dx = (j - i) * 0.4;
+              dy = (i - j) * 0.4;
+            }
+            const len = Math.hypot(dx, dy) || 1;
+            const push = (overlapX < overlapY ? overlapX : overlapY) * 0.55 + 0.8;
+            const wa = b.priority || 1;
+            const wb = a.priority || 1;
+            const total = wa + wb;
+            const mx = (dx / len) * push;
+            const my = (dy / len) * push;
+            a.x -= (mx * wa) / total;
+            a.y -= (my * wa) / total;
+            b.x += (mx * wb) / total;
+            b.y += (my * wb) / total;
+          }
+        }
+      }
+
+      // Keep labels from drifting too far from their anchors
+      for (const L of labels) {
+        const dx = L.x - L.ax;
+        const dy = L.y - L.ay;
+        const d = Math.hypot(dx, dy);
+        const maxD = L.maxDrift ?? 52;
+        if (d > maxD) {
+          L.x = L.ax + (dx / d) * maxD;
+          L.y = L.ay + (dy / d) * maxD;
+        }
+      }
+    }
+
+    function queueBadge(ctx, list, text, x, y, opts = {}) {
+      const m = measureBadge(ctx, text, opts);
+      list.push({
+        text,
+        ax: x,
+        ay: y,
+        x,
+        y,
+        w: m.w,
+        h: m.h,
+        fontSize: m.fontSize,
+        weight: m.weight,
+        textColor: opts.textColor ?? "#1a1510",
+        bg: opts.bg ?? "rgba(255, 248, 235, 0.94)",
+        border: opts.border ?? "#5a4a38",
+        accent: opts.accent ?? null,
+        priority: opts.priority ?? 1,
+        maxDrift: opts.maxDrift ?? 52,
+      });
+    }
+
+    function drawMap() {
+      const ctx = mapCtx;
+      const W = mapCanvas.width;
+      const H = mapCanvas.height;
+      const cx = W / 2;
+      const cy = H / 2;
+      const scale = ((W * 0.4) / ROOM_R) * mapZoom;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Parchment / museum paper background
+      const parchment = ctx.createLinearGradient(0, 0, W, H);
+      parchment.addColorStop(0, "#d8c7a8");
+      parchment.addColorStop(0.45, "#cbb892");
+      parchment.addColorStop(1, "#b9a57c");
+      ctx.fillStyle = parchment;
+      ctx.fillRect(0, 0, W, H);
+
+      // Soft fiber noise (deterministic — no flicker)
+      for (let i = 0; i < 900; i++) {
+        const x = (i * 97) % W;
+        const y = (i * 53) % H;
+        ctx.fillStyle = i % 2 === 0 ? "rgba(90,70,40,0.045)" : "rgba(255,250,235,0.05)";
+        ctx.fillRect(x, y, 1.5, 1.5);
+      }
+
+      // Faint grid
+      ctx.save();
+      ctx.strokeStyle = "rgba(70, 55, 35, 0.08)";
+      ctx.lineWidth = 1;
+      const grid = 28;
+      for (let x = ((cx + mapPanX) % grid + grid) % grid; x < W; x += grid) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+      }
+      for (let y = ((cy + mapPanY) % grid + grid) % grid; y < H; y += grid) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Room floor disk — tiled stone look
+      const floorR = ROOM_R * scale;
+      const [fcx, fcy] = worldToMap(0, 0, cx, cy, scale);
+      ctx.beginPath();
+      ctx.arc(fcx, fcy, floorR, 0, Math.PI * 2);
+      const floorGrad = ctx.createRadialGradient(fcx, fcy, floorR * 0.1, fcx, fcy, floorR);
+      floorGrad.addColorStop(0, "#4a4036");
+      floorGrad.addColorStop(0.7, "#352e28");
+      floorGrad.addColorStop(1, "#2a241f");
+      ctx.fillStyle = floorGrad;
+      ctx.fill();
+
+      // Floor tile lines
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(fcx, fcy, floorR, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.strokeStyle = "rgba(20,16,12,0.28)";
+      ctx.lineWidth = 1;
+      const tile = 18 * mapZoom;
+      const minX = fcx - floorR;
+      const maxX = fcx + floorR;
+      const minY = fcy - floorR;
+      const maxY = fcy + floorR;
+      for (let x = minX; x <= maxX; x += tile) {
+        ctx.beginPath();
+        ctx.moveTo(x, minY);
+        ctx.lineTo(x, maxY);
+        ctx.stroke();
+      }
+      for (let y = minY; y <= maxY; y += tile) {
+        ctx.beginPath();
+        ctx.moveTo(minX, y);
+        ctx.lineTo(maxX, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(fcx, fcy, floorR, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(60, 45, 30, 0.55)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(230, 210, 170, 0.35)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Soft aisle glow in center
+      const aisle = ctx.createRadialGradient(fcx, fcy, 0, fcx, fcy, floorR * 0.45);
+      aisle.addColorStop(0, "rgba(255, 236, 200, 0.12)");
+      aisle.addColorStop(1, "rgba(255, 236, 200, 0)");
+      ctx.fillStyle = aisle;
+      ctx.beginPath();
+      ctx.arc(fcx, fcy, floorR * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      const labelScale = Math.min(1.5, Math.max(0.9, mapZoom));
+      const mapLabels = [];
+
+      // Outer wall state arcs + labels
+      let schoolIndex = 0;
+      for (const group of OUTER_STATES) {
+        const n = group.schools.length;
+        const t0 = (schoolIndex / OUTER_COUNT) * Math.PI * 2;
+        const t1 = ((schoolIndex + n) / OUTER_COUNT) * Math.PI * 2;
+        const tMid = (t0 + t1) / 2;
+        const steps = Math.max(8, n * 6);
+
+        // Soft color wash behind wall arc
+        ctx.beginPath();
+        for (let s = 0; s <= steps; s++) {
+          const t = t0 + ((t1 - t0) * s) / steps;
+          const r = ROOM_R - 0.8;
+          const [mx, my] = worldToMap(Math.sin(t) * r, Math.cos(t) * r, cx, cy, scale);
+          if (s === 0) ctx.moveTo(mx, my);
+          else ctx.lineTo(mx, my);
+        }
+        for (let s = steps; s >= 0; s--) {
+          const t = t0 + ((t1 - t0) * s) / steps;
+          const r = ROOM_R + 0.35;
+          const [mx, my] = worldToMap(Math.sin(t) * r, Math.cos(t) * r, cx, cy, scale);
+          ctx.lineTo(mx, my);
+        }
+        ctx.closePath();
+        ctx.fillStyle = group.color + "33";
+        ctx.fill();
+
+        ctx.beginPath();
+        for (let s = 0; s <= steps; s++) {
+          const t = t0 + ((t1 - t0) * s) / steps;
+          const [mx, my] = worldToMap(Math.sin(t) * ROOM_R, Math.cos(t) * ROOM_R, cx, cy, scale);
+          if (s === 0) ctx.moveTo(mx, my);
+          else ctx.lineTo(mx, my);
+        }
+        ctx.strokeStyle = group.color;
+        ctx.lineWidth = 11 * Math.min(1.2, mapZoom);
+        ctx.lineCap = "butt";
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        const [lx, ly] = worldToMap(
+          Math.sin(tMid) * (ROOM_R + 2.1),
+          Math.cos(tMid) * (ROOM_R + 2.1),
+          cx,
+          cy,
+          scale
+        );
+        queueBadge(ctx, mapLabels, group.state, lx, ly, {
+          fontSize: Math.round(14 * labelScale),
+          accent: group.color,
+          bg: "#fff8ec",
+          textColor: "#1a1510",
+          border: group.color,
+          priority: 2.2,
+          maxDrift: 70,
+        });
+
+        for (let i = 0; i < n; i++) {
+          const t = ((schoolIndex + i + 0.5) / OUTER_COUNT) * Math.PI * 2;
+          const [sx, sy] = worldToMap(
+            Math.sin(t) * (ROOM_R - 2.5),
+            Math.cos(t) * (ROOM_R - 2.5),
+            cx,
+            cy,
+            scale
+          );
+          const [dx, dy] = worldToMap(
+            Math.sin(t) * (ROOM_R - PED_WALL_OFFSET),
+            Math.cos(t) * (ROOM_R - PED_WALL_OFFSET),
+            cx,
+            cy,
+            scale
+          );
+          ctx.beginPath();
+          ctx.arc(dx, dy, 3.5 * labelScale, 0, Math.PI * 2);
+          ctx.fillStyle = "#fff8ec";
+          ctx.fill();
+          ctx.strokeStyle = group.color;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          queueBadge(ctx, mapLabels, group.schools[i][0], sx, sy, {
+            fontSize: Math.round(11 * labelScale),
+            bg: "#1f1a16",
+            textColor: "#fff8ec",
+            border: "#fff8ec",
+            padX: 5,
+            padY: 3,
+            priority: 1,
+            maxDrift: 48,
+          });
+        }
+
+        schoolIndex += n;
+      }
+
+      // Interior pillars
+      for (let p = 0; p < PILLAR_GROUPS.length; p++) {
+        const a = (p / PILLAR_GROUPS.length) * Math.PI * 2;
+        const ox = Math.sin(a) * PILLAR_RING;
+        const oz = Math.cos(a) * PILLAR_RING;
+        const [px, py] = worldToMap(ox, oz, cx, cy, scale);
+        const pr = PILLAR_R * scale;
+
+        ctx.beginPath();
+        ctx.arc(px + 3, py + 4, pr + 2, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(30, 22, 14, 0.25)";
+        ctx.fill();
+
+        const pillarGrad = ctx.createRadialGradient(px - pr * 0.25, py - pr * 0.25, pr * 0.2, px, py, pr);
+        pillarGrad.addColorStop(0, "#e6dcc8");
+        pillarGrad.addColorStop(1, "#b7aa92");
+        ctx.beginPath();
+        ctx.arc(px, py, pr, 0, Math.PI * 2);
+        ctx.fillStyle = pillarGrad;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(60, 45, 30, 0.45)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        const groups = PILLAR_GROUPS[p];
+        let count = 0;
+        for (const g of groups) count += g.schools.length;
+        let idx = 0;
+        for (const g of groups) {
+          const n = g.schools.length;
+          const t0 = (idx / count) * Math.PI * 2;
+          const t1 = ((idx + n) / count) * Math.PI * 2;
+          const tMid = (t0 + t1) / 2;
+          const steps = Math.max(6, n * 5);
+          ctx.beginPath();
+          for (let s = 0; s <= steps; s++) {
+            const t = t0 + ((t1 - t0) * s) / steps;
+            const [mx, my] = worldToMap(
+              ox + Math.sin(t) * PILLAR_R,
+              oz + Math.cos(t) * PILLAR_R,
+              cx,
+              cy,
+              scale
+            );
+            if (s === 0) ctx.moveTo(mx, my);
+            else ctx.lineTo(mx, my);
+          }
+          ctx.strokeStyle = g.color;
+          ctx.lineWidth = 8 * Math.min(1.2, mapZoom);
+          ctx.stroke();
+
+          const [lx, ly] = worldToMap(
+            ox + Math.sin(tMid) * (PILLAR_R + 2.8),
+            oz + Math.cos(tMid) * (PILLAR_R + 2.8),
+            cx,
+            cy,
+            scale
+          );
+          queueBadge(ctx, mapLabels, g.state, lx, ly, {
+            fontSize: Math.round(12 * labelScale),
+            accent: g.color,
+            bg: "#fff8ec",
+            textColor: "#1a1510",
+            border: g.color,
+            priority: 2.2,
+            maxDrift: 70,
+          });
+
+          for (let i = 0; i < n; i++) {
+            const t = ((idx + i + 0.5) / count) * Math.PI * 2;
+            const [sx, sy] = worldToMap(
+              ox + Math.sin(t) * (PILLAR_PED_R + 0.35),
+              oz + Math.cos(t) * (PILLAR_PED_R + 0.35),
+              cx,
+              cy,
+              scale
+            );
+            const [dx, dy] = worldToMap(
+              ox + Math.sin(t) * PILLAR_PED_R,
+              oz + Math.cos(t) * PILLAR_PED_R,
+              cx,
+              cy,
+              scale
+            );
+            ctx.beginPath();
+            ctx.arc(dx, dy, 3.5 * labelScale, 0, Math.PI * 2);
+            ctx.fillStyle = "#fff8ec";
+            ctx.fill();
+            ctx.strokeStyle = g.color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            queueBadge(ctx, mapLabels, g.schools[i][0], sx, sy, {
+              fontSize: Math.round(11 * labelScale),
+              bg: "#1f1a16",
+              textColor: "#fff8ec",
+              border: "#fff8ec",
+              padX: 5,
+              padY: 3,
+              priority: 1,
+              maxDrift: 48,
+            });
+          }
+          idx += n;
+        }
+      }
+
+      // Player marker
+      const [ux, uy] = worldToMap(camera.position.x, camera.position.z, cx, cy, scale);
+      const look = new THREE.Vector3();
+      camera.getWorldDirection(look);
+      const yaw = Math.atan2(look.x, look.z);
+
+      ctx.beginPath();
+      ctx.arc(ux, uy, 14, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.22)";
+      ctx.fill();
+
+      ctx.save();
+      ctx.translate(ux, uy);
+      ctx.rotate(yaw + Math.PI);
+      ctx.beginPath();
+      ctx.moveTo(0, -11);
+      ctx.lineTo(8, 9);
+      ctx.lineTo(0, 4);
+      ctx.lineTo(-8, 9);
+      ctx.closePath();
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "#1a1612";
+      ctx.lineWidth = 2;
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      queueBadge(ctx, mapLabels, "You", ux + 22, uy - 12, {
+        fontSize: Math.round(12 * labelScale),
+        bg: "#ffffff",
+        textColor: "#1a1510",
+        border: "#1a1510",
+        padX: 6,
+        padY: 3,
+        priority: 3,
+        maxDrift: 30,
+      });
+
+      resolveLabelOverlaps(mapLabels);
+      for (const L of mapLabels) drawBadgeAt(ctx, L);
+
+      ctx.fillStyle = "rgba(255, 248, 230, 0.92)";
+      ctx.strokeStyle = "rgba(90, 70, 45, 0.45)";
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(12, H - 56, 300, 44);
+      ctx.strokeRect(12, H - 56, 300, 44);
+      ctx.fillStyle = "#1a1510";
+      ctx.font = "700 12px Georgia, serif";
+      ctx.textAlign = "left";
+      ctx.fillText("Outer ring = wall  ·  Circles = pillars", 24, H - 32);
+      ctx.fillStyle = "#3a3024";
+      ctx.font = "600 11px Georgia, serif";
+      ctx.fillText(`Zoom ${mapZoom.toFixed(1)}x  ·  scroll / drag`, 24, H - 16);
+    }
+
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    const SPEED = 4.2;
+    const EYE = 1.6;
+
+    const maxRadius = ROOM_R - PED_WALL_OFFSET - 0.45;
+
+    let prev = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - prev) / 1000, 0.05);
+      prev = now;
+
+      if (controls.isLocked && !mapOpen && !collegeOpen && !galleryLoadingOpen) {
+        velocity.x -= velocity.x * 8.0 * dt;
+        velocity.z -= velocity.z * 8.0 * dt;
+
+        direction.z = Number(keys.w) - Number(keys.s);
+        direction.x = Number(keys.d) - Number(keys.a);
+        direction.normalize();
+
+        if (keys.w || keys.s) velocity.z -= direction.z * SPEED * 12 * dt;
+        if (keys.a || keys.d) velocity.x -= direction.x * SPEED * 12 * dt;
+
+        controls.moveRight(-velocity.x * dt);
+        controls.moveForward(-velocity.z * dt);
+
+        const dist = Math.hypot(camera.position.x, camera.position.z);
+        if (dist > maxRadius) {
+          const s = maxRadius / dist;
+          camera.position.x *= s;
+          camera.position.z *= s;
+        }
+        for (const p of pillarOrigins) {
+          const dx = camera.position.x - p.x;
+          const dz = camera.position.z - p.z;
+          const d = Math.hypot(dx, dz);
+          if (d < p.r && d > 0.0001) {
+            const s = p.r / d;
+            camera.position.x = p.x + dx * s;
+            camera.position.z = p.z + dz * s;
+          }
+        }
+        camera.position.y = EYE;
+      }
+
+      updateTabletLook();
+
+      if (mapOpen) {
+        // map is static while open (movement paused)
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    animate(performance.now());
+  </script>
+</body>
+</html>
