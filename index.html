@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Museum Hallway</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -567,10 +567,10 @@
     #joy {
       display: none;
       position: fixed;
-      left: 1.2rem;
-      bottom: 1.2rem;
-      width: 7.5rem;
-      height: 7.5rem;
+      left: max(1rem, env(safe-area-inset-left));
+      bottom: max(1rem, env(safe-area-inset-bottom));
+      width: 10.5rem;
+      height: 10.5rem;
       z-index: 16;
       touch-action: none;
       user-select: none;
@@ -585,17 +585,32 @@
       border: 1px solid rgba(242, 232, 213, 0.35);
     }
     #joyKnob {
-      width: 2.8rem;
-      height: 2.8rem;
+      width: 4rem;
+      height: 4rem;
       left: 50%;
       top: 50%;
-      margin: -1.4rem 0 0 -1.4rem;
+      margin: -2rem 0 0 -2rem;
       background: rgba(242, 232, 213, 0.55);
       border: 1px solid rgba(242, 232, 213, 0.7);
     }
     body.mobile #joy { display: block; }
     body.mobile #hud { display: none; }
     body.mobile #crosshair, body.mobile #lookPrompt { display: none; }
+
+    /* Force landscape when phone is sideways but layout is still portrait */
+    html.force-landscape,
+    html.force-landscape body {
+      width: 100vh;
+      height: 100vw;
+      overflow: hidden;
+    }
+    html.force-landscape body {
+      position: fixed;
+      top: 0;
+      left: 100vw;
+      transform: rotate(90deg);
+      transform-origin: top left;
+    }
   </style>
 </head>
 <body>
@@ -2802,6 +2817,33 @@
     const euler = new THREE.Euler(0, 0, 0, "YXZ");
     const PI_2 = Math.PI / 2;
 
+    function applyForcedLandscape() {
+      if (!isMobile) {
+        document.documentElement.classList.remove("force-landscape");
+        return;
+      }
+      // Height > width means the page is still in a portrait box
+      const portraitBox = innerHeight > innerWidth;
+      document.documentElement.classList.toggle("force-landscape", portraitBox);
+      // Try native lock when available (works best in fullscreen)
+      try {
+        const o = screen.orientation;
+        if (o && o.lock && portraitBox) o.lock("landscape").catch(() => {});
+      } catch (_) {}
+      camera.aspect = innerWidth / innerHeight;
+      if (document.documentElement.classList.contains("force-landscape")) {
+        camera.aspect = innerHeight / innerWidth;
+      }
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      if (document.documentElement.classList.contains("force-landscape")) {
+        renderer.setSize(innerHeight, innerWidth);
+      }
+    }
+    applyForcedLandscape();
+    addEventListener("resize", applyForcedLandscape);
+    addEventListener("orientationchange", () => setTimeout(applyForcedLandscape, 150));
+
     const raycaster = new THREE.Raycaster();
     const centerNDC = new THREE.Vector2(0, 0);
     const COLLEGE_SLIDE_MS = 1500;
@@ -2863,6 +2905,11 @@
         mobilePlay = true;
         hud.classList.remove("show");
         crosshair.classList.remove("show");
+        applyForcedLandscape();
+        try {
+          const o = screen.orientation;
+          if (o && o.lock) o.lock("landscape").catch(() => {});
+        } catch (_) {}
       } else {
         controls.lock();
       }
@@ -3541,7 +3588,7 @@
     // ——— Mobile joystick + touch look ———
     const joyEl = document.getElementById("joy");
     const joyKnob = document.getElementById("joyKnob");
-    const JOY_R = 48;
+    const JOY_R = 68;
     let joyTouchId = null;
     let lookTouchId = null;
     let lookLastX = 0;
@@ -4384,12 +4431,6 @@
 
       renderer.render(scene, camera);
     }
-
-    addEventListener("resize", () => {
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    });
 
     animate(performance.now());
   </script>
