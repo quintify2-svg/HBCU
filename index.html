@@ -563,6 +563,39 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    #joy {
+      display: none;
+      position: fixed;
+      left: 1.2rem;
+      bottom: 1.2rem;
+      width: 7.5rem;
+      height: 7.5rem;
+      z-index: 16;
+      touch-action: none;
+      user-select: none;
+    }
+    #joyBase, #joyKnob {
+      position: absolute;
+      border-radius: 50%;
+    }
+    #joyBase {
+      inset: 0;
+      background: rgba(20, 16, 12, 0.45);
+      border: 1px solid rgba(242, 232, 213, 0.35);
+    }
+    #joyKnob {
+      width: 2.8rem;
+      height: 2.8rem;
+      left: 50%;
+      top: 50%;
+      margin: -1.4rem 0 0 -1.4rem;
+      background: rgba(242, 232, 213, 0.55);
+      border: 1px solid rgba(242, 232, 213, 0.7);
+    }
+    body.mobile #joy { display: block; }
+    body.mobile #hud { display: none; }
+    body.mobile #crosshair, body.mobile #lookPrompt { display: none; }
   </style>
 </head>
 <body>
@@ -627,6 +660,10 @@
 
   <div id="crosshair"></div>
   <div id="lookPrompt">Click to read</div>
+  <div id="joy" aria-hidden="true">
+    <div id="joyBase"></div>
+    <div id="joyKnob"></div>
+  </div>
 
   <div id="collegeOverlay">
     <button type="button" id="collegeBack">← Back</button>
@@ -2755,6 +2792,15 @@
     let galleryPhotosPromise = null;
     let galleryPhotosReady = false;
     let galleryLoadingOpen = false;
+    const isMobile =
+      matchMedia("(pointer: coarse)").matches ||
+      /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (isMobile) document.body.classList.add("mobile");
+    let mobilePlay = false;
+    let joyX = 0;
+    let joyZ = 0;
+    const euler = new THREE.Euler(0, 0, 0, "YXZ");
+    const PI_2 = Math.PI / 2;
 
     const raycaster = new THREE.Raycaster();
     const centerNDC = new THREE.Vector2(0, 0);
@@ -2813,8 +2859,13 @@
       intro.classList.add("hidden");
       hint.classList.remove("visible");
       introDone = true;
-      // Pointer lock only works in this click gesture — request it before awaiting photos
-      controls.lock();
+      if (isMobile) {
+        mobilePlay = true;
+        hud.classList.remove("show");
+        crosshair.classList.remove("show");
+      } else {
+        controls.lock();
+      }
 
       if (!galleryPhotosReady) {
         galleryLoadingOpen = true;
@@ -2828,7 +2879,7 @@
         galleryLoadingOpen = false;
       }
 
-      if (!controls.isLocked) {
+      if (!isMobile && !controls.isLocked) {
         hint.classList.add("visible");
         hud.classList.remove("show");
         crosshair.classList.remove("show");
@@ -3438,7 +3489,10 @@
       if (hoveredTablet?.userData.outline) hoveredTablet.userData.outline.visible = false;
       hoveredTablet = null;
       hint.classList.remove("visible");
-      // Clicking Back / finishing is a user gesture — re-enter the gallery directly
+      if (isMobile) {
+        mobilePlay = true;
+        return;
+      }
       controls.lock();
       setTimeout(() => {
         if (!controls.isLocked && !collegeOpen && !mapOpen && introDone) {
@@ -3458,24 +3512,182 @@
 
     hint.addEventListener("click", () => {
       if (!introDone || mapOpen || collegeOpen) return;
-      controls.lock();
+      if (isMobile) {
+        mobilePlay = true;
+        hint.classList.remove("visible");
+      } else controls.lock();
     });
     controls.addEventListener("lock", () => {
       hint.classList.remove("visible");
-      hud.classList.add("show");
-      crosshair.classList.add("show");
+      if (!isMobile) {
+        hud.classList.add("show");
+        crosshair.classList.add("show");
+      }
     });
     controls.addEventListener("unlock", () => {
       crosshair.classList.remove("show", "hot");
       lookPrompt.classList.remove("show");
-      if (!introDone || mapOpen || collegeOpen || galleryLoadingOpen) return;
+      if (!introDone || mapOpen || collegeOpen || galleryLoadingOpen || isMobile) return;
       hint.classList.add("visible");
       hud.classList.remove("show");
     });
 
     addEventListener("click", () => {
+      if (isMobile) return;
       if (!controls.isLocked || mapOpen || collegeOpen || galleryLoadingOpen || !hoveredTablet) return;
       openCollege(hoveredTablet);
+    });
+
+    // ——— Mobile joystick + touch look ———
+    const joyEl = document.getElementById("joy");
+    const joyKnob = document.getElementById("joyKnob");
+    const JOY_R = 48;
+    let joyTouchId = null;
+    let lookTouchId = null;
+    let lookLastX = 0;
+    let lookLastY = 0;
+
+    function setJoy(nx, nz) {
+      joyX = nx;
+      joyZ = nz;
+      joyKnob.style.transform = `translate(${nx * JOY_R}px, ${-nz * JOY_R}px)`;
+    }
+
+    function joyFromEvent(e) {
+      const r = joyEl.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      let dx = e.clientX - cx;
+      let dy = e.clientY - cy;
+      const len = Math.hypot(dx, dy) || 1;
+      const max = r.width * 0.35;
+      if (len > max) {
+        dx = (dx / len) * max;
+        dy = (dy / len) * max;
+      }
+      setJoy(dx / max, -dy / max);
+    }
+
+    function canMobilePlay() {
+      return introDone && mobilePlay && !mapOpen && !collegeOpen && !galleryLoadingOpen;
+    }
+
+    joyEl.addEventListener(
+      "touchstart",
+      (e) => {
+        if (!canMobilePlay()) return;
+        const t = e.changedTouches[0];
+        joyTouchId = t.identifier;
+        joyFromEvent(t);
+        e.preventDefault();
+      },
+      { passive: false }
+    );
+    addEventListener(
+      "touchmove",
+      (e) => {
+        for (const t of e.changedTouches) {
+          if (t.identifier === joyTouchId) {
+            joyFromEvent(t);
+            e.preventDefault();
+          } else if (t.identifier === lookTouchId && canMobilePlay()) {
+            const dx = t.clientX - lookLastX;
+            const dy = t.clientY - lookLastY;
+            lookLastX = t.clientX;
+            lookLastY = t.clientY;
+            euler.setFromQuaternion(camera.quaternion);
+            euler.y -= dx * 0.005;
+            euler.x -= dy * 0.005;
+            euler.x = Math.max(-PI_2 + 0.05, Math.min(PI_2 - 0.05, euler.x));
+            camera.quaternion.setFromEuler(euler);
+            e.preventDefault();
+          }
+        }
+      },
+      { passive: false }
+    );
+    function endTouch(e) {
+      for (const t of e.changedTouches) {
+        if (t.identifier === joyTouchId) {
+          joyTouchId = null;
+          setJoy(0, 0);
+        }
+        if (t.identifier === lookTouchId) lookTouchId = null;
+      }
+    }
+    addEventListener("touchend", endTouch);
+    addEventListener("touchcancel", endTouch);
+
+    renderer.domElement.addEventListener(
+      "touchstart",
+      (e) => {
+        if (!canMobilePlay() || lookTouchId != null) return;
+        const t = e.changedTouches[0];
+        // ignore touches that begin on the joystick
+        const jr = joyEl.getBoundingClientRect();
+        if (
+          t.clientX >= jr.left &&
+          t.clientX <= jr.right &&
+          t.clientY >= jr.top &&
+          t.clientY <= jr.bottom
+        )
+          return;
+        lookTouchId = t.identifier;
+        lookLastX = t.clientX;
+        lookLastY = t.clientY;
+
+        // tap tablet to open (no drag)
+        raycaster.setFromCamera(centerNDC, camera);
+        const hits = raycaster.intersectObjects(tabletHits, false);
+        const hit = hits.find((h) => h.distance < 4.2)?.object;
+        if (hit) {
+          const sx = t.clientX;
+          const sy = t.clientY;
+          const id = t.identifier;
+          const onEnd = (ev) => {
+            for (const u of ev.changedTouches) {
+              if (u.identifier !== id) continue;
+              if (Math.hypot(u.clientX - sx, u.clientY - sy) < 14) openCollege(hit);
+              removeEventListener("touchend", onEnd);
+            }
+          };
+          addEventListener("touchend", onEnd);
+        }
+        e.preventDefault();
+      },
+      { passive: false }
+    );
+
+    function toggleMap() {
+      if (!introDone || collegeOpen) return;
+      mapOpen = !mapOpen;
+      mapOverlay.classList.toggle("open", mapOpen);
+      if (mapOpen) {
+        if (controls.isLocked) controls.unlock();
+        mobilePlay = false;
+        setJoy(0, 0);
+        hint.classList.remove("visible");
+        mapZoom = 1;
+        mapPanX = 0;
+        mapPanY = 0;
+        drawMap();
+      } else if (isMobile) {
+        mobilePlay = true;
+        hint.classList.remove("visible");
+      } else {
+        hint.classList.remove("visible");
+        controls.lock();
+        setTimeout(() => {
+          if (!controls.isLocked && !mapOpen && !collegeOpen && introDone) {
+            hint.classList.add("visible");
+            hud.classList.remove("show");
+          }
+        }, 300);
+      }
+    }
+
+    mapOverlay.addEventListener("click", (e) => {
+      if (e.target === mapOverlay) toggleMap();
     });
 
     const keys = { w: false, a: false, s: false, d: false };
@@ -3511,35 +3723,13 @@
       if (k in keys) keys[k] = false;
     });
 
-    function toggleMap() {
-      if (!introDone || collegeOpen) return;
-      mapOpen = !mapOpen;
-      mapOverlay.classList.toggle("open", mapOpen);
-      if (mapOpen) {
-        if (controls.isLocked) controls.unlock();
-        hint.classList.remove("visible");
-        mapZoom = 1;
-        mapPanX = 0;
-        mapPanY = 0;
-        drawMap();
-      } else {
-        hint.classList.remove("visible");
-        controls.lock();
-        setTimeout(() => {
-          if (!controls.isLocked && !mapOpen && !collegeOpen && introDone) {
-            hint.classList.add("visible");
-            hud.classList.remove("show");
-          }
-        }, 300);
-      }
-    }
-
-    mapOverlay.addEventListener("click", (e) => {
-      if (e.target === mapOverlay) toggleMap();
-    });
-
     function updateTabletLook() {
-      if (!controls.isLocked || mapOpen || collegeOpen || galleryLoadingOpen) {
+      if (
+        !(controls.isLocked || (isMobile && mobilePlay)) ||
+        mapOpen ||
+        collegeOpen ||
+        galleryLoadingOpen
+      ) {
         if (hoveredTablet?.userData.outline) hoveredTablet.userData.outline.visible = false;
         hoveredTablet = null;
         crosshair.classList.remove("hot");
@@ -4144,16 +4334,25 @@
       const dt = Math.min((now - prev) / 1000, 0.05);
       prev = now;
 
-      if (controls.isLocked && !mapOpen && !collegeOpen && !galleryLoadingOpen) {
+      const playing =
+        (controls.isLocked || (isMobile && mobilePlay)) &&
+        !mapOpen &&
+        !collegeOpen &&
+        !galleryLoadingOpen;
+
+      if (playing) {
         velocity.x -= velocity.x * 8.0 * dt;
         velocity.z -= velocity.z * 8.0 * dt;
 
-        direction.z = Number(keys.w) - Number(keys.s);
-        direction.x = Number(keys.d) - Number(keys.a);
-        direction.normalize();
+        direction.z = Number(keys.w) - Number(keys.s) + joyZ;
+        direction.x = Number(keys.d) - Number(keys.a) + joyX;
+        if (direction.lengthSq() > 1) direction.normalize();
+        else if (direction.lengthSq() > 0) direction.normalize();
 
-        if (keys.w || keys.s) velocity.z -= direction.z * SPEED * 12 * dt;
-        if (keys.a || keys.d) velocity.x -= direction.x * SPEED * 12 * dt;
+        if (keys.w || keys.s || keys.a || keys.d || joyX || joyZ) {
+          velocity.z -= direction.z * SPEED * 12 * dt;
+          velocity.x -= direction.x * SPEED * 12 * dt;
+        }
 
         controls.moveRight(-velocity.x * dt);
         controls.moveForward(-velocity.z * dt);
